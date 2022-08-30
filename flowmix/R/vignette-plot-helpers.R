@@ -10,6 +10,7 @@
 ##' @param show.xb.constraint If TRUE, show the ball constraint boundaries.
 ##'
 ##' @export
+##' @keywords internal
 plot_3d <- function(obj,
                     ylist, countslist = NULL, ## The time point of interest, out of 1:TT
                     tt, ## Other options.
@@ -46,7 +47,7 @@ plot_3d <- function(obj,
 
   ## Scale the biomass (|countslist|) by the total biomass in that cytogram.
   counts_sum = sapply(countslist, sum)
-  fac = median(counts_sum)
+  fac = stats::median(counts_sum)
   countslist = lapply(countslist, function(counts)counts/sum(counts) * fac)
 
 
@@ -58,33 +59,30 @@ plot_3d <- function(obj,
   dimslist = list(1:2, 2:3, c(3,1))
   for(dims in dimslist){
     ## one_dim_scatterplot(ylist, obj, tt,
-    scatterplot_2d(ylist, obj, tt,
-                   countslist = countslist,
-                   dims = dims,
-                   cex_fac = cex.fac.2d,
-                   pt_col = pt_col,
-                   lwd = 2)
+    plot3d_scatterplot_2d(ylist, obj, tt,
+                          countslist = countslist,
+                          dims = dims,
+                          cex_fac = cex.fac.2d,
+                          pt_col = pt_col,
+                          lwd = 2)
   }
   par(cex=0.8)
 
   par(mar=c(1,1,3,1))
   phis = c(10,50)
   for(phi in phis){
-    one_3d_plot(ylist, obj, tt, countslist = countslist, phi = phi,
+    plot3d_one_3d_plot(ylist, obj, tt, countslist = countslist, phi = phi,
                 cex.fac = cex.fac.3d)
   }
 
 
   ## Add map with cruise location.
-  make_map(obj, tt, lon, lat)##, destin = destin)
-  ## make_map_ggplot(obj, tt, destin = destin)
+  plot3d_make_map(obj, tt, lon, lat)##, destin = destin)
 
   ######################
   ## Plot covariates ###
   ######################
-  ## plot(NA, xlim=c(0,TT*1), ylim = ylim.cov, ylab = "Covariates", xlab="",
-  ##      axes = FALSE)
-  plot_covariates(obj, tt=tt)
+  plot3d_plot_covariates(obj, tt=tt)
 
   ## If there is no |obj|, stop here.
   if(only_plot_cytograms){ return(NULL) }
@@ -101,7 +99,7 @@ plot_3d <- function(obj,
        xlab="",##"time, t=1,..,T",
        cex.axis = 2,
        axes=FALSE)
-  add_date_ticks(obj)
+  plot3d_add_date_ticks(obj)
   for(iclust in 1:numclust){
     lines(probs[[iclust]], col=cols[iclust], lwd=2)##, lty=iclust)
   }
@@ -182,18 +180,12 @@ plot_3d <- function(obj,
         font.main = 1)
 }
 
-
-
-##' Function generic for the main 3d plotting functionality.
-plot3d <- function (x, ...) {
-   UseMethod("plot3d", x)
-}
-
-
-##' Making data plot for two dimensions of the original three (those in |ind|).
+##' Making data plot for two dimensions out of the original three (those in
+##' \code{dims}).
 ##'
 ##' @export
-scatterplot_2d <- function(ylist, obj, tt, countslist = NULL, dims = c(1,2),
+##' @keywords internal
+plot3d_scatterplot_2d <- function(ylist, obj, tt, countslist = NULL, dims = c(1,2),
                            cex_fac = 10,
                            xlab = NULL,
                            ylab = NULL,
@@ -219,13 +211,9 @@ scatterplot_2d <- function(ylist, obj, tt, countslist = NULL, dims = c(1,2),
   labs = colnames(ylist[[1]])
   if(!is.null(countslist)){
     maxcount = max(unlist(countslist))
-    ## countslist = lapply(countslist, function(counts){
-    ##   counts / maxcount
-    ## })
     counts = countslist[[tt]] /maxcount
     if(constant_total_count) counts = counts/sum(counts)
   } else {
-    ## countslist = lapply(ylist, function(y){ rep(1, nrow(y)) })
     counts = rep(1, nrow(y))
   }
 
@@ -243,20 +231,12 @@ scatterplot_2d <- function(ylist, obj, tt, countslist = NULL, dims = c(1,2),
   ## Get plot ranges
   ranges = get_range_from_ylist(ylist)
   if(is.null(ylim)) ylim = ranges[,dims[2]]
-  if(is.null(xlim)) xlim = ranges[,dims[1]]##range(all.y[,dims[1]])
+  if(is.null(xlim)) xlim = ranges[,dims[1]]
   if(is.null(ylab))ylab = labs[dims[2]]
   if(is.null(xlab))xlab = labs[dims[1]]
 
-  ## Make the 2d plot
-  ## if(!is.null(countslist)){
-  ##   cex = sqrt(count) / max_sqrt_count * cex.fac
-  ## }
 
-  ## browser()
-  ## ifelse(is.null(countslist), NULL, counts)
-  ## if(is.null(countslist)) counts = NULL
-
-  one_2d_plot(y = y,
+  plot3d_one_2d_plot(y = y,
               counts = counts,
               xlim = xlim, ylim = ylim,## cex=cex,
               ylab = ylab, xlab = xlab,
@@ -265,7 +245,7 @@ scatterplot_2d <- function(ylist, obj, tt, countslist = NULL, dims = c(1,2),
 
   ## Add the means
   if(!is.null(obj)){
-    scatterplot_2d_addmodel(obj, tt, dims,
+    plot3d_scatterplot_2d_addmodel(obj, tt, dims,
                                  add_clust_labels = add_clust_labels,
                                  subset_of_clust = subset_of_clust, col=col,
                                  lwd = lwd,
@@ -287,7 +267,9 @@ scatterplot_2d <- function(ylist, obj, tt, countslist = NULL, dims = c(1,2),
 ##' @param col color of the added means and confidence regions.
 ##'
 ##' @return NULL.
-scatterplot_2d_addmodel <- function(obj, tt, dims,
+##' @export
+##' @keywords internal
+plot3d_scatterplot_2d_addmodel <- function(obj, tt, dims,
                                          col = "tomato",
                                          add_clust_labels = TRUE,
                                          clust_labels = NULL,
@@ -381,7 +363,8 @@ scatterplot_2d_addmodel <- function(obj, tt, dims,
 ##' Making a 3d scatter plot with a certain angle..
 ##' @param ... Additional arguments to plot3d::scatter3d().
 ##' @export
-one_3d_plot <- function(ylist, obj=NULL, tt, countslist=NULL, phi = 40,
+##' @keywords internal
+plot3d_one_3d_plot <- function(ylist, obj=NULL, tt, countslist=NULL, phi = 40,
                         cex.fac = 1,
                         cex.axis = 1,
                         xlab = NULL,
@@ -463,10 +446,10 @@ one_3d_plot <- function(ylist, obj=NULL, tt, countslist=NULL, phi = 40,
 }
 
 
-
-
 ##' A simple function for plotting 3-dimensional data.
 ##'
+##' @import graphics
+##' @noRd
 plot3d_simple <- function(obj,
                           ## Understandably, data (ylist) might not be in the object.
                           ylist, countslist = NULL,
@@ -481,8 +464,8 @@ plot3d_simple <- function(obj,
                           ){
 
   ## Define layout
-  par(mfrow = c(1,3))
-  par(oma = c(3, 1, 2, 1)) ## setting outer margin
+  graphics::par(mfrow = c(1,3))
+  graphics::par(oma = c(3, 1, 2, 1)) ## setting outer margin
 
   ## Setup
   TT = length(ylist)
@@ -501,7 +484,7 @@ plot3d_simple <- function(obj,
 
   ## Scale the biomass (|countslist|) by the total biomass in that cytogram.
   counts_sum = sapply(countslist, sum)
-  fac = median(counts_sum)
+  fac = stats::median(counts_sum)
   countslist = lapply(countslist, function(counts)counts/sum(counts) * fac)
 
 
@@ -509,10 +492,10 @@ plot3d_simple <- function(obj,
   ## Make the three data plots ##
   ###############################
   ## par(mar=c(1,1,3,1))
-  par(mar = c(5.1, 5.1, 4.1, 2.1))
+  graphics::par(mar = c(5.1, 5.1, 4.1, 2.1))
   dimslist = list(1:2, 2:3, c(3,1))
   for(dims in dimslist){
-    scatterplot_2d(ylist = ylist,
+    plot3d_scatterplot_2d(ylist = ylist,
                    countslist = countslist,
                    obj = obj,
                    tt = tt,
@@ -520,5 +503,164 @@ plot3d_simple <- function(obj,
                    pt_col = rgb(0 ,0, 1, 0.1),
                    xlab = dimnames[dims[1]],
                    ylab = dimnames[dims[2]])
+  }
+}
+
+
+
+##' Make ticks from rownames of res$X. TODO: make it handle dates. (only for 1d
+##' data).
+##'
+##' @param res Object of class |flowmix|.
+##' @noRd
+plot3d_add_date_ticks <- function(res){
+  dates = sapply(as.Date(rownames(res$X)), ## %>% format("%B %d")
+                 toString)
+
+  nums = as.numeric(as.factor(dates))
+  left_ticks = sapply(sort(unique(nums)),function(ii){min(which(nums==ii))})
+  left_ticks = c(left_ticks, res$TT)
+  mid_ticks = sapply(sort(unique(nums)),function(ii){mean(which(nums==ii))})
+  dates_mid_ticks = dates[round(mid_ticks)]
+  axis(1, at=left_ticks, labels=FALSE)
+  axis(1, at=mid_ticks, labels = dates_mid_ticks, tick=FALSE, las=2)
+  axis(2)
+}
+
+
+
+##' Make map for the MGL1704 cruise.
+##' @noRd
+plot3d_make_map <- function(res, tt, lon, lat){##, destin=NULL){
+
+  ## Make empty map
+  lat1 = 10
+  lat2 = 60
+  lon1 = -180
+  lon2 = -120
+  margin = 15
+  xrange = c(lon1, lon2) + margin * c(-1,1)
+  yrange = c(lat1, lat2) + margin * c(-1,1)
+  maps::map(database = 'world',
+            ## xlim = c(-170, -110),
+            ## ylim = c(10, 50),
+            xlim = xrange,
+            ylim = yrange,
+            fill = T,
+            col = 'grey',
+            resolution = 0,
+            bg = 'white',
+            mar = c(1,1,2,1))
+
+  ## Make
+  if(!is.null(lat) & !is.null(lon)){
+    ## load(file=file.path(destin, "latlontime.Rdata"))
+    colfunc <- grDevices::colorRampPalette(c("red", "blue"))
+    ## cols = colfunc(length(lat))
+    cols = "black"
+    graphics::lines(y = lat, x = lon, pch = 16, cex = 0.1, col = cols, lwd = .5)
+  }
+## Add the point for time tt
+  graphics::points(lon[tt], lat[tt], pch = "X", cex = 4, col = 'red')
+}
+
+
+##' Plot a single cytogram.
+##'
+##' @param y (nt x 2) matrix.
+##' @param counts multiplicity of each point in y.
+##' @param cex_fac Only active when \code{!is.null(counts)}; user-supplier
+##'   multiplier onto the point size \code{cex==sqrt(counts)}.
+##'
+##' @return NULL
+##' @noRd
+plot3d_one_2d_plot <- function(y, counts=NULL, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, cex=0.5,
+                        pt_col = rgb(0, 0, 1, 0.1),
+                        cex_fac = 1,
+                        axes = TRUE,
+                        x_ticks = NULL,
+                        y_ticks = NULL){
+
+  ## Basic checks.
+  stopifnot(ncol(y) == 2)
+  if(!is.null(counts)) stopifnot(length(counts) == nrow(y))
+
+  if(is.null(xlim)) xlim = range(y[,1])
+  if(is.null(ylim)) ylim = range(y[,2])
+
+  ## Create empty plot
+  plot(NA,
+       ylim = ylim,
+       xlim = xlim,
+       ylab = ylab,
+       xlab = xlab,
+       cex.lab = 2,
+       cex.axis = 2,
+       xaxt = 'n',
+       yaxt = 'n')
+  if(!axes){
+    axis(1, at = x_ticks,
+         cex.axis = 2)
+    axis(2, at = y_ticks,
+         cex.axis = 2)
+  } else {
+    axis(1, cex.axis = 2)
+    axis(2, cex.axis = 2)
+  }
+
+  ## Add datapoints
+  if(is.null(counts)){
+    cex = 0.01
+  } else {
+    cex = counts %>% sqrt()
+    cex = cex * cex_fac
+  }
+  points(y, col = pt_col, pch = 16, cex = cex)
+}
+
+
+
+##' Plots the time series of covariates from an |obj| object.
+##'
+##' @param obj An object of class |flowmix|.
+##' @param tt Time point to highlight.
+##'
+##' @return no return
+##'
+##' @import graphics
+##' @noRd
+plot3d_plot_covariates <- function(obj, tt = NULL){
+
+  ## Setup
+  X = obj$X
+  ylim.cov = range(X) * c(1, 0.7)
+  cols = 1:5
+
+  ## Produce plot
+  par(mar = c(5,5,2,2),
+      cex.axis = 2, cex.lab = 2)
+  TT = nrow(X)
+  graphics::matplot(X,
+          col = 'grey',
+          lwd = 0.5,
+          type = 'l',
+          xlim = c(0,TT* 1),
+          ylim = ylim.cov,
+          axes = FALSE,
+          ylab = "",
+          xlab = "")
+  graphics::legend("topleft",
+         legend = "Environmental Covariates",
+         cex = 3,
+         bty = "n")
+
+  ## Make a green vertical line to signify the current time point.
+  if(!is.null(tt)) graphics::abline(v = tt, col = 'green', lwd = 3)
+
+  ## Add date ticks.
+  if(!is.null(rownames(obj$X)) & lubridate::is.Date(rownames(obj$X)[1])){
+    plot3d_add_date_ticks(obj)
+  } else {
+    graphics::axis(2); graphics::axis(1);
   }
 }
