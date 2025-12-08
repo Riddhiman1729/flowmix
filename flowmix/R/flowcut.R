@@ -6,7 +6,7 @@
 ##'
 ##' @return The |flowcut| class object that had the best likelihood.
 ##' @export
-flowcut <- function(..., nrep = 5){
+flowcut <- function(..., nrep = 5, mc.cores = 1){
   
   dots <- list(...)
   if("verbose" %in% names(dots)){
@@ -18,20 +18,20 @@ flowcut <- function(..., nrep = 5){
   ## Don't do many restarts if warmstart-able mean is provided
   if(!is.null(dots$mn)) nrep = 1
   if(!is.null(dots$seed)) stop("Can't provide seed for flowcut()! Only for flowcut_once().")
-  
-  ## Do |nrep| restarts.
-  reslist = list()
-  for(irep in 1:nrep){
+
+  ## Main loop
+  reslist <- parallel::mclapply(1:nrep, function(irep){
     if("verbose" %in% names(dots)){
       if(dots$verbose){ cat("EM restart:", irep, fill=TRUE) }
     }
-    reslist[[irep]] = flowcut_once(...)
     if("verbose" %in% names(dots)){
       if(dots$verbose){
         cat(fill=TRUE)
       }
     }
-  }
+    flowcut_once(...)
+  }, mc.cores = mc.cores)
+
   
   ## Pick the best one and return
   objlist = lapply(reslist, function(res){ res$obj[-1]})
