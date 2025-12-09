@@ -20,34 +20,26 @@ Sigma_hat_calculation_fn <- function(iclust, resp, ylist, second_moment_list, mn
   ntlist <- sapply(ylist, nrow)
   dimdat <- ncol(ylist[[1]])
   numclust <- ncol(resp[[1]])
-  
-  mat_calc_func <- function(iclust, tt, ii, resp, ylist, second_moment_list, cens_mat){
-    mat_out <- matrix(0, dimdat, dimdat)
-    condition <- ((cens_mat[,1] == tt) & (cens_mat[,2] == ii))
-    cens_vec <- cens_mat[condition, , drop = FALSE]
-    if (nrow(cens_vec) == 0) return(mat_out)
-    if (sum(cens_vec[1, 3:(dimdat+2)]) == 0) {
-      return(mat_out)
-    } else {
-      indices_temp <- which(cens_vec[1, 3:(dimdat+2)] == 1)
-      mean_temp <- ylist[[tt]][ii, indices_temp]
-      mat_out[indices_temp, indices_temp] <-
-        resp[[tt]][ii, iclust] * (second_moment_list[[iclust]][[tt]][[ii]] - mean_temp %*% t(mean_temp))
-      return(mat_out)
-    }
-  }
-  
-  out <- lapply(seq_len(TT), function(tt) {
-    lapply(seq_len(ntlist[tt]), function(ii) {
-      mat_calc_func(iclust, tt, ii, resp, ylist, second_moment_list, cens_mat)
-    })
+
+  cens_row = cens_mat[,3:(dimdat+2), drop=FALSE] %>% apply(1, function(myrow){
+    any(myrow==1)
+  }) %>% which()
+  cens_mat_small = cens_mat[cens_row,]
+  out <- lapply(1:nrow(cens_mat_small), function(irow){
+    mat_out = matrix(0, dimdat, dimdat)
+    cens_vec <- cens_mat_small[irow, , drop = FALSE]
+    indices_temp <- which(cens_vec[1, 3:(dimdat+2)] == 1)
+    tt = cens_vec[1]
+    ii = cens_vec[2]
+    mean_temp <- ylist[[tt]][ii, indices_temp]
+    mat_out[indices_temp, indices_temp] <-
+      resp[[tt]][ii, iclust] * (second_moment_list[[iclust]][[tt]][[ii]] - mean_temp %*% t(mean_temp))
+    return(mat_out)
   })
-  
+  ## Weighted sum of the list of matrices |out|
   resp.long <- do.call(rbind, resp)
   resp.sum  <- apply(resp.long, 2, sum)[iclust]
-  
-  flatten_out <- unlist(out, recursive = FALSE)
-  out_mat <- Reduce(`+`, flatten_out)
+  out_mat <- Reduce(`+`, out)
   out_mat / resp.sum
 }
 
