@@ -10,16 +10,50 @@
 
 my_pmvnorm <- function(lower, upper, mean, sigma){
   prob <- tryCatch({
-    mvtnorm::pmvnorm(lower, upper, mean = mean, sigma = sigma)
+    ## b = pmvnorm_minimal(lower, upper, mean = mean, sigma = sigma)
+    a = mvtnorm::pmvnorm(lower, upper, mean = mean, sigma = sigma)
+    ## if(!identical(a,b)){
+    ##   browser()
+    ## }
   }, error = function(e) {
     NaN
   })
+
   if (prob < 1e-12 || is.nan(prob)) {
     return(1e-12)
-  }else{
-    return(mvtnorm::pmvnorm(lower,upper, mean = mean, sigma = sigma))
+  } else {
+    return(prob)
+    ## Removed unnecessary call.
+    ## mvtnorm::pmvnorm(lower,upper, mean = mean, sigma = sigma))
   }
-  
+}
+
+
+pmvnorm_minimal <- function (lower = -Inf, upper = Inf, mean = rep(0, length(lower)),
+                             corr = NULL, sigma = NULL, algorithm = mvtnorm:::GenzBretz(), keepAttr = TRUE,
+                             seed = NULL, ...) {
+
+  univariate = (length(sigma) == 1)
+  if (univariate) {
+    RET <- list(value = pnorm(carg$upper, mean = carg$mean,
+                              sd = sqrt(carg$sigma)) - pnorm(carg$lower, mean = carg$mean,
+                                                             sd = sqrt(carg$sigma)),
+                error = 0, msg = "univariate: using pnorm")
+  } else {
+
+  ## Bare minimum calculation of pnorm
+  lower <- (lower - mean)/sqrt(diag(sigma))
+  upper <- (upper - mean)/sqrt(diag(sigma))
+  mean <- rep(0, length(lower))
+  corr <- cov2cor(sigma)
+  RET <- mvtnorm:::mvt(lower = lower, upper = upper, df = 0,
+             corr = corr, delta = mean, algorithm = algorithm,
+             ...)
+  }
+  if (keepAttr)
+    structure(RET$value, error = RET$error, msg = RET$msg,
+              algorithm = RET$algorithm)
+  else RET$value
 }
 
 
@@ -487,11 +521,3 @@ cens_cond_normal <- function(ii,tt,y,X,censor_indicator_left,
               all_conditional_means = all_cond_mean_list,
               all_conditional_second_moment_list = all_cond_second_moment_list))
 }
-
-
-
-
-
-
-
-  
