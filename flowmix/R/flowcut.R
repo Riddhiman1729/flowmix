@@ -265,6 +265,7 @@ flowcut_once <- function(ylist, X,
     
     y_new = estepy_saved$new_responses
     
+    
     ## M step (three parts)
     ## 1. Alpha
     ## if(iter==2) browser()

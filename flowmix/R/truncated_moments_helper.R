@@ -358,12 +358,9 @@ cens_cond_normal <- function(ii,tt,y,X,censor_indicator_left,
   new_response_list = list()
   y_vec = y[[tt]][ii,]
   
-  
-  if((sum(censor_indicator_left[[tt]][ii,],na.rm = TRUE)!=dimdat) | (sum(censor_indicator_right[[tt]][ii,],na.rm = TRUE)!=dimdat)){
-    left_cens_index = which(censor_indicator_left[[tt]][ii,]==1)
-    right_cens_index = which(censor_indicator_right[[tt]][ii,]==1)
-    #    cens_index = which((censor_indicator_left[[tt]][ii,]==1)|(censor_indicator_right[[tt]][ii,]==1))
-    uncensored_index=which((censor_indicator_left[[tt]][ii,]!=1 |is.na(censor_indicator_left[[tt]][ii,]))&(censor_indicator_right[[tt]][ii,]!=1|is.na(censor_indicator_right[[tt]][ii,])))
+  left_cens_index = which(censor_indicator_left[[tt]][ii,]==1)
+  right_cens_index = which(censor_indicator_right[[tt]][ii,]==1)
+  uncensored_index=which((censor_indicator_left[[tt]][ii,]!=1 |is.na(censor_indicator_left[[tt]][ii,]))&(censor_indicator_right[[tt]][ii,]!=1|is.na(censor_indicator_right[[tt]][ii,])))
     lower_limits = cens_lim_l_vec[left_cens_index]
     upper_limits = cens_lim_u_vec[right_cens_index]
     for(iclust in 1:numclust){
@@ -385,6 +382,14 @@ cens_cond_normal <- function(ii,tt,y,X,censor_indicator_left,
       p_upper_limit[right_cens_index] = Inf
       
       
+      
+      if((length(upper_limits)==0)&(length(lower_limits)==0)){
+        prob_cens_conditional[[iclust]] = NA
+        all_cond_second_moment_list[[iclust]] = NA
+        all_cond_mean_list[[iclust]] = NA
+
+      }  
+    
       
       if((length(upper_limits)>0)&(length(lower_limits)>0)){
         if(length(uncensored_index)==0){
@@ -458,19 +463,13 @@ cens_cond_normal <- function(ii,tt,y,X,censor_indicator_left,
         all_cond_second_moment_list[[iclust]] = mu_conditional[[iclust]]%*% t(mu_conditional[[iclust]])+ mu_conditional[[iclust]]%*% t(saved_mean)+ saved_mean %*% t(mu_conditional[[iclust]]) + saved_second_moment_raw
         
       }
-      
-      if((length(upper_limits)==0)&(length(lower_limits)==0)){
-        prob_cens_conditional[[iclust]] = NA
-        all_cond_second_moment_list[[iclust]] = NA
-        all_cond_mean_list[[iclust]] = mu_conditional[[iclust]]
-      }  
-      
       new_response_list[[iclust]] = numeric(dimdat)
       new_response_list[[iclust]][uncensored_index] = y_vec[uncensored_index]
       new_response_list[[iclust]][-uncensored_index] = all_cond_mean_list[[iclust]]
     }
-  }
-  
+    
+
+
   #  lapply(1:numclust, function(iclust) {
   #    mat <- all_cond_second_moment_list[[iclust]]
   
@@ -490,186 +489,6 @@ cens_cond_normal <- function(ii,tt,y,X,censor_indicator_left,
 }
 
 
-#'Compute the moments of a d-dimensional truncated Gaussian with zero mean with given truncation limits.
-#'@param ii the particle index for which the censored 
-#'@param tt the time point in question
-#'@param y the response. Is a list with a matrix at each time point of dimension nt x dimension.
-#'@param X the matrix of covariates with dimensions tt x d.
-#'@param censor_indicator_left A list checking whether an observation is left censored. The list if of size TT with each entry being a ntxdim  matrix.
-#'@param censor_indicator_right A list checking whether an observation is right censored. The list if of size TT with each entry being a ntxdim  matrix.
-#'@param cens_lim_l_vec Lower censoring limits.
-#'@param cens_lim_u_vec Upper censoring limits.
-#'@param numclust number of clusters
-#'@param mu_list list of means by cluster. Each cluster has a matrix of dim TT x d.
-#'@param sigma_list list of covariance matrices by cluster. Each cluster has a matrix of dim d x d.
-#'
-#'@return a list for the means and variances of the censored/uncensored observation ii at time tt per each cluster.
-#'
-#'
-
-cens_cond_normal <- function(ii,tt,y,X,censor_indicator_left, 
-                             censor_indicator_right,
-                             cens_lim_l_vec,
-                             cens_lim_u_vec,
-                             numclust, mu_list,sigma_list){
-  
-  #print(c(tt,ii))
-  #if((tt==3)&(ii==71)) browser()
-  
-  dimdat = ncol(y[[1]])
-  ntlist = sapply(y, nrow)
-  
-  ##Basic Checks
-  stopifnot(is.list(y))
-  stopifnot(is.list(censor_indicator_left))
-  stopifnot(is.list(censor_indicator_right))
-  stopifnot(is.list(mu_list))
-  stopifnot(is.list(sigma_list))
-  stopifnot(length(cens_lim_l_vec)==length(cens_lim_u_vec))
-  
-  ##Main body
-  
-  ##if((debug_global==9)&&(tt==3)&&(ii==71)) debug(moment_cal_func_centered)
-  
-  mu_conditional = list()
-  Sigma_conditional = list()
-  prob_cens_conditional = list()
-  conditional_response = list()
-  all_cond_mean_list = list()
-  all_cond_second_moment_list = list()
-  new_response_list = list()
-  y_vec = y[[tt]][ii,]
-  
-  
-  if((sum(censor_indicator_left[[tt]][ii,],na.rm = TRUE)!=dimdat) | (sum(censor_indicator_right[[tt]][ii,],na.rm = TRUE)!=dimdat)){
-    left_cens_index = which(censor_indicator_left[[tt]][ii,]==1)
-    right_cens_index = which(censor_indicator_right[[tt]][ii,]==1)
-    #    cens_index = which((censor_indicator_left[[tt]][ii,]==1)|(censor_indicator_right[[tt]][ii,]==1))
-    uncensored_index=which((censor_indicator_left[[tt]][ii,]!=1 |is.na(censor_indicator_left[[tt]][ii,]))&(censor_indicator_right[[tt]][ii,]!=1|is.na(censor_indicator_right[[tt]][ii,])))
-    lower_limits = cens_lim_l_vec[left_cens_index]
-    upper_limits = cens_lim_u_vec[right_cens_index]
-    for(iclust in 1:numclust){
-      #print(iclust)
-      #if(iclust==2) debug(moment_cal_func_centered)
-      mu = mu_list[[iclust]][tt,]
-      Sigma = sigma_list[[iclust]]
-      
-      mu_conditional[[iclust]] = cond_mean_var_func(y_vec, mu,Sigma,uncensored_index)$mu_conditional
-      Sigma_conditional[[iclust]] = cond_mean_var_func(y_vec, mu,Sigma,uncensored_index)$Sigma_conditional
-      
-      p_lower_limit = numeric(dimdat)  
-      p_upper_limit = numeric(dimdat)
-      p_lower_limit[left_cens_index] = -Inf
-      p_lower_limit[uncensored_index] = -Inf
-      p_lower_limit[right_cens_index] = upper_limits
-      p_upper_limit[left_cens_index] = lower_limits
-      p_upper_limit[uncensored_index] = Inf
-      p_upper_limit[right_cens_index] = Inf
-      
-      
-      
-      if((length(upper_limits)>0)&(length(lower_limits)>0)){
-        if(length(uncensored_index)==0){
-          prob_cens_conditional[[iclust]] = my_pmvnorm(p_lower_limit[sort(c(left_cens_index,right_cens_index))], p_upper_limit[sort(c(left_cens_index,right_cens_index))], mean = as.vector(mu_conditional[[iclust]]), sigma = Sigma_conditional[[iclust]])[1]
-          
-          astar_vec = as.vector(p_lower_limit[sort(c(left_cens_index,right_cens_index))] -mu_conditional[[iclust]])
-          bstar_vec = as.vector(p_upper_limit[sort(c(left_cens_index,right_cens_index))] -mu_conditional[[iclust]])
-          
-          saved_moments<-moment_cal_func_centered(astar_vec,bstar_vec,Sigma_conditional[[iclust]])
-          #print(saved_moments)
-          saved_mean <- saved_moments$mean_vec
-          #print(saved_mean)
-          saved_second_moment_raw <- saved_moments$Sigma_raw_mat
-          #print(saved_second_moment_raw)
-          
-          
-          all_cond_mean_list[[iclust]] = mu_conditional[[iclust]] + saved_mean
-          
-          
-          all_cond_second_moment_list[[iclust]] = mu_conditional[[iclust]]%*% t(mu_conditional[[iclust]])+ mu_conditional[[iclust]]%*% t(saved_mean)+ saved_mean %*% t(mu_conditional[[iclust]]) +saved_second_moment_raw
-        }else{
-          prob_cens_conditional[[iclust]] = my_pmvnorm(p_lower_limit[-uncensored_index], p_upper_limit[-uncensored_index], mean = as.vector(mu_conditional[[iclust]]), sigma = Sigma_conditional[[iclust]])[1]
-          
-          astar_vec = as.vector(p_lower_limit[-uncensored_index] -mu_conditional[[iclust]])
-          bstar_vec = as.vector(p_upper_limit[-uncensored_index] -mu_conditional[[iclust]])
-          
-          saved_moments<-moment_cal_func_centered(astar_vec,bstar_vec,Sigma_conditional[[iclust]])
-          
-          saved_mean <- saved_moments$mean_vec
-          saved_second_moment_raw <- saved_moments$Sigma_raw_mat
-          
-          all_cond_mean_list[[iclust]] = mu_conditional[[iclust]] +saved_mean
-          
-          
-          all_cond_second_moment_list[[iclust]] = mu_conditional[[iclust]]%*% t(mu_conditional[[iclust]])+ mu_conditional[[iclust]]%*% t(saved_mean)+ saved_mean %*% t(mu_conditional[[iclust]]) +saved_second_moment_raw
-        }
-      }            
-      
-      
-      if((length(upper_limits)==0)&(length(lower_limits)>0)){
-        prob_cens_conditional[[iclust]] = my_pmvnorm(rep(-Inf,length(lower_limits)), lower_limits, mean = as.vector(mu_conditional[[iclust]]), sigma = Sigma_conditional[[iclust]])[1]
-        astar_vec = rep(-Inf,length(lower_limits))
-        bstar_vec = as.vector(lower_limits -mu_conditional[[iclust]])
-        
-        saved_moments<-moment_cal_func_centered(astar_vec,bstar_vec,Sigma_conditional[[iclust]])
-        
-        saved_mean <- saved_moments$mean_vec
-        saved_second_moment_raw <- saved_moments$Sigma_raw_mat
-        
-        all_cond_mean_list[[iclust]] = mu_conditional[[iclust]]+saved_mean
-        
-        all_cond_second_moment_list[[iclust]] = mu_conditional[[iclust]]%*% t(mu_conditional[[iclust]])+ mu_conditional[[iclust]]%*% t(saved_mean)+
-          saved_mean %*% t(mu_conditional[[iclust]]) +
-          saved_second_moment_raw
-        
-      }
-      
-      if((length(upper_limits)>0)&(length(lower_limits)==0)){
-        prob_cens_conditional[[iclust]] = my_pmvnorm(upper_limits,rep(Inf,length(upper_limits)), mean = as.vector(mu_conditional[[iclust]]), sigma = Sigma_conditional[[iclust]])
-        
-        astar_vec = as.vector(upper_limits -mu_conditional[[iclust]])
-        bstar_vec = rep(Inf,length(upper_limits))
-        
-        saved_moments<-moment_cal_func_centered(astar_vec,bstar_vec,Sigma_conditional[[iclust]])
-        
-        saved_mean <- saved_moments$mean_vec
-        saved_second_moment_raw <- saved_moments$Sigma_raw_mat
-        
-        all_cond_mean_list[[iclust]] = mu_conditional[[iclust]]+saved_mean
-        
-        all_cond_second_moment_list[[iclust]] = mu_conditional[[iclust]]%*% t(mu_conditional[[iclust]])+ mu_conditional[[iclust]]%*% t(saved_mean)+ saved_mean %*% t(mu_conditional[[iclust]]) + saved_second_moment_raw
-        
-      }
-      
-      if((length(upper_limits)==0)&(length(lower_limits)==0)){
-        prob_cens_conditional[[iclust]] = NA
-        all_cond_second_moment_list[[iclust]] = NA
-        all_cond_mean_list[[iclust]] = mu_conditional[[iclust]]
-      }  
-      
-      new_response_list[[iclust]] = numeric(dimdat)
-      new_response_list[[iclust]][uncensored_index] = y_vec[uncensored_index]
-      new_response_list[[iclust]][-uncensored_index] = all_cond_mean_list[[iclust]]
-    }
-  }
-  
-  #  lapply(1:numclust, function(iclust) {
-  #    mat <- all_cond_second_moment_list[[iclust]]
-  
-  # Skip IF any NA
-  #    if (!any(is.na(mat))) {
-  #      if (!all(mat == t(mat))) {
-  #        print(paste("Cluster number, time, particle number in order is :", 
-  #                    paste(c(iclust, tt, ii), collapse = " ")))
-  #        stop("Non-symmetric second moment found. Stopping execution.")
-  #      }
-  #    }
-  #  })
-  
-  return(list(new_response_list = new_response_list,
-              all_conditional_means = all_cond_mean_list,
-              all_conditional_second_moment_list = all_cond_second_moment_list))
-}
 
 
 
