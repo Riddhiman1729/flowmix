@@ -20,7 +20,7 @@ Sigma_hat_calculation_fn <- function(iclust, resp, ylist, second_moment_list, mn
   ntlist <- sapply(ylist, nrow)
   dimdat <- ncol(ylist[[1]])
   numclust <- ncol(resp[[1]])
-
+  
   cens_row = cens_mat[,3:(dimdat+2), drop=FALSE] %>% apply(1, function(myrow){
     any(myrow==1)
   }) %>% which()

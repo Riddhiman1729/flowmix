@@ -19,7 +19,7 @@
 ##'   half, the fourth cluster appears, and the ratio becomes 6:1:1:1.
 ##'
 ##'
-##' @return list containing ylist, X
+##' @return list containing ylist, X with censoting indicators
 ##' @export
 ##'
 
@@ -282,15 +282,19 @@ add_transition <- function(X, lat){
 ##' Function to create 1d simulated data.
 ##'
 ##' @param TT Number of time points.
+##' @param left_limit left censoring limit.
+##' @param right_limit  right censoring limit.
 ##' @param sigma1 variance of cluster 1.
 ##' @param sigma2 variance of cluster 2.
 ##'
+##'@return list of responses and covariates with cenoring indicators
 ##' @export
-generate_1d_data <- function(TT, sigma1 = NULL, sigma2 = NULL){
+generate_1d_data_flowcut <- function(p=5 ,TT, nt=1000 , left_limit, right_limit,   prob1 = 3/4 ,sigma1 = NULL, sigma2 = NULL){
   
   ## Generate covariates.
   stopifnot(TT %% 2 == 0)
-  p = 2
+  stopifnot(p>=1)
+  
   X = matrix(stats::rnorm(TT*p), ncol = p, nrow = TT)
   X[,1] = sin((1:TT)/TT * 4 * pi)
   X[,2] = c(rep(0, TT/2), rep(1, TT/2))
@@ -298,8 +302,8 @@ generate_1d_data <- function(TT, sigma1 = NULL, sigma2 = NULL){
   
   ## Generate coefficients. ## this should be (dimdat x p) = (2d x 2)
   offset =  3
-  beta1 = c(offset + 0,1,0)
-  beta2 = c(offset + 3,0,0)
+  beta1 = c(offset + 0,rep(0.05,p))
+  beta2 = c(offset + 3,rep(0,p))
   
   betalist = list(beta1, beta2)
   
@@ -309,7 +313,6 @@ generate_1d_data <- function(TT, sigma1 = NULL, sigma2 = NULL){
   mnlist = list(mn1, mn2)
   
   ## Define mixture components
-  prob1 = 3/4
   pi1 = c(rep(prob1, TT/2), rep(1E-8, TT/2))
   pi2 = c(rep((1-prob1), TT/2), rep(1-1E-9, TT/2))
   pilist =  list(pi1, pi2)
@@ -319,23 +322,21 @@ generate_1d_data <- function(TT, sigma1 = NULL, sigma2 = NULL){
   pimat = pimat/rowSums(pimat)
   
   ## Also define alphas
-  alpha1 = c(log(3/4), 0, -8+log(3/4)) ##+10
-  alpha2 = c(log(1/4), 0, -log(1/4)) ## +10
-  pimat2 = cbind(exp(Xa %*% cbind(alpha1)), (exp(Xa %*% cbind(alpha2))))
+  ##alpha1 = c(log(3/4), 0, -8+log(3/4)) ##+10
+  ##alpha2 = c(log(1/4), 0, -log(1/4)) ## +10
+  ##pimat2 = cbind(exp(Xa %*% cbind(alpha1)), (exp(Xa %*% cbind(alpha2))))
   
   ## Note, the alpha coefficients are only identifiable up to a constant; in
   ## other words, you can plug in (alpha1 + c) and (alpha2 + c) and the
   ## resulting pi (pimat/rowSums(pimat) is the same.
   
   ## Define the number of points total
-  nt = 10
-  ntlist = c(rep(nt + (nt * 3), TT/2), rep(nt, TT/2)) %>% round()
+  ntlist = c(rep(1.5* nt, TT/2), rep(nt, TT/2)) %>% round()
   
   ## Define the covariances
   if(is.null(sigma1))sigma1 = .1
   if(is.null(sigma2))sigma2 = .1
   sigmalist = list(sigma1, sigma2)
-  dimdat = 1
   
   ## Then, the resulting |y| is a probabistic mixture of the /components/
   datapoints = sapply(1:TT, function(tt){
@@ -352,9 +353,28 @@ generate_1d_data <- function(TT, sigma1 = NULL, sigma2 = NULL){
   })
   ylist = lapply(ylist, function(a) cbind(a))
   
+  ylist_cens=list()
+  cens_ind_left=list()
+  cens_ind_right=list()
+  
+  for(tt in 1:TT){
+    cens_ind_left[[tt]] = matrix(NA,nrow(ylist[[tt]]), 1)
+    cens_ind_right[[tt]] = matrix(NA,nrow(ylist[[tt]]), 1)
+    ylist_cens[[tt]] = matrix(NA,nrow(ylist[[tt]]), ncol(ylist[[tt]]))
+    cens_ind_left[[tt]][,1] = ifelse(ylist[[tt]][,1]<=left_limit,1,NA)
+    cens_ind_right[[tt]][,1] = ifelse(ylist[[tt]][,1]>=right_limit,1,NA)
+    ylist_cens[[tt]][,1]=left_limit*ifelse(is.na(cens_ind_left[[tt]][,1]),0,1) + right_limit*ifelse(is.na(cens_ind_right[[tt]][,1]),0,1)+
+      ylist[[tt]][,1]*(1-ifelse(is.na(cens_ind_left[[tt]][,1]),0,1)-ifelse(is.na(cens_ind_right[[tt]][,1]),0,1)+ifelse(is.na(cens_ind_left[[tt]][,1]),0,1)*ifelse(is.na(cens_ind_right[[tt]][,1]),0,1))
+    
+  }
+  
+  
+  
   ## Return the results
-  return(list(ylist = ylist,
+  return(list(ylist = ylist_cens,
               classlist = classlist,
+              censor_indicator_left = cens_ind_left,
+              censor_indicator_right = cens_ind_right,
               X = X,
               Xa = Xa,
               sigmalist = sigmalist,

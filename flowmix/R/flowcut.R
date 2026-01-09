@@ -202,8 +202,8 @@ flowcut_once <- function(ylist, X,
   assertthat::assert_that(is.null(cens_lim_vec_upper)==F)
   assertthat::assert_that(length(cens_indicator_list_left)==nrow(X))
   assertthat::assert_that(length(cens_indicator_list_right)==nrow(X))
-  assertthat::assert_that(length(cens_lim_vec_lower)==ncol(X))
-  assertthat::assert_that(length(cens_lim_vec_upper)==ncol(X))
+  assertthat::assert_that(length(cens_lim_vec_lower)==ncol(ylist[[1]]))
+  assertthat::assert_that(length(cens_lim_vec_upper)==ncol(ylist[[1]]))
   
   
   ## Initialize some objects
@@ -233,7 +233,14 @@ flowcut_once <- function(ylist, X,
   
   start.time = Sys.time()
   for(iter in 2:niter){
-    #print(iter)
+    # print(iter)
+    # if(iter==7){
+    #   debug(Mstep_alpha)
+    #   debug(Mstep_beta_admm_flowcut)
+    # }
+    # if(iter==3){
+    #   debug(eigendecomp_sigma_array)
+    # }
     if(verbose){
       #print_progress(iter-1, niter-1, "EM iterations.", start.time = start.time)
       print(cat("Iteration", iter - 1, "of", niter - 1, "EM iterations.\n"))
@@ -264,7 +271,6 @@ flowcut_once <- function(ylist, X,
                            cens_lim_vec_upper, numclust, mn_list_temp , sigma_list_temp)
     
     y_new = estepy_saved$new_responses
-    
     
     ## M step (three parts)
     ## 1. Alpha
@@ -347,7 +353,12 @@ flowcut_once <- function(ylist, X,
     
     cens_mat = pmax(temp_mat_left,temp_mat_right)
     
-    cens_ind = 1*(apply(cens_mat[,-c(1,2)],1,sum)!=0)
+    if(ncol(cens_mat)>3){
+      cens_ind = 1*(apply(cens_mat[,-c(1,2)],1,sum)!=0)
+    }else{
+      cens_ind = cens_mat[,3]
+    }
+    
     
     first_moment_list = estepy_saved$means
     
@@ -359,19 +370,23 @@ flowcut_once <- function(ylist, X,
                                   second_moment_list,
                                   mn)
     
-    ## 3. (Continue) Decompose the sigmas.
-    sigma_eig_by_clust <- eigendecomp_sigma_array(sigma)
-    denslist_by_clust <- make_denslist_eigen(ylist, mn, TT, dimdat, numclust,
-                                             sigma_eig_by_clust)
     
-    ## Calculate the objectives
-    objectives[iter] = objective(mn, prob, sigma, ylist,
-                                 prob_lambda = prob_lambda,
-                                 mean_lambda = mean_lambda,
-                                 alpha = alpha, beta = beta,
-                                 denslist_by_clust = denslist_by_clust,
-                                 countslist = countslist)
     
+      ## 3. (Continue) Decompose the sigmas.
+      sigma_eig_by_clust <- eigendecomp_sigma_array(sigma)
+      denslist_by_clust <- make_denslist_eigen(ylist, mn, TT, dimdat, numclust,
+                                               sigma_eig_by_clust)
+      
+      ## Calculate the objectives
+      objectives[iter] = objective(mn, prob, sigma, ylist,
+                                   prob_lambda = prob_lambda,
+                                   mean_lambda = mean_lambda,
+                                   alpha = alpha, beta = beta,
+                                   denslist_by_clust = denslist_by_clust,
+                                   countslist = countslist)
+      
+
+        
     ## Check convergence
     converged = check_converge_rel(objectives[iter-1],
                                    objectives[iter],
@@ -570,23 +585,30 @@ make_denslist_eigen <- function(ylist, mu,
   lapply(1:numclust, function(iclust){
     mysigma_eig <- sigma_eig_by_clust[[iclust]]
     lapply(1:TT, function(tt){
-      ## return(dmvnorm_fast(ylist[[tt]],
-      ##                     mu[tt,,iclust],
-      ##                     sigma_eig=mysigma_eig))
+      #browser()
       mn = mu[tt,,iclust]
       sgm = mysigma_eig$sigma
-      if(dimdat == 1){
-        mn = as.matrix(mn)
-        sgm = sgm %>% as.matrix()
+      if(dimdat>1){
+        ## return(dmvnorm_fast(ylist[[tt]],
+        ##                     mu[tt,,iclust],
+        ##                     sigma_eig=mysigma_eig))
+
+        #if(dimdat == 1){
+        #  mn = as.matrix(mn)
+        #  sgm = sgm %>% as.matrix()
+        #}
+        return(dmvnorm_arma_fast(ylist[[tt]],
+                                 mn,
+                                 sgm))
+      }else{
+        return(dnorm(ylist[[tt]],
+                                 mn,
+                                 sgm))
       }
-      return(dmvnorm_arma_fast(ylist[[tt]],
-                               mn,
-                               sgm))
+
     })
   })
 }
-
-
 
 
 

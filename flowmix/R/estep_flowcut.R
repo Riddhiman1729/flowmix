@@ -17,15 +17,15 @@
 #'
 #' @export
 Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
-                  censor_indicator_left,
-                  censor_indicator_right,
-                  cens_lim_l_vec,
-                  cens_lim_u_vec,
-                  numclust,
-                  denslist_by_clust = NULL,
-                  first_iter = FALSE,
-                  eps = 1E-20,
-                  countslist = NULL) {
+                          censor_indicator_left,
+                          censor_indicator_right,
+                          cens_lim_l_vec,
+                          cens_lim_u_vec,
+                          numclust,
+                          denslist_by_clust = NULL,
+                          first_iter = FALSE,
+                          eps = 1E-20,
+                          countslist = NULL) {
   
   TT     <- length(ylist)
   ntlist <- sapply(ylist, nrow)
@@ -45,7 +45,8 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
                              cens_lim_u_vec,
                              denslist_by_clust,
                              first_iter) {
-    #browser()
+    #browser() 
+    #print(c(tt,iclust))
     mu   <- mn[tt, , iclust]
     nt   <- nrow(y)
     dens <- numeric(nt)
@@ -53,12 +54,13 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
     
     if (first_iter) {
       dens <- sapply(seq_len(nt), function(ii) {
+        #browser()
         if (dimdat == 1) {
           stats::dnorm(y[ii,], mu, sd = sqrt(sigma[iclust,,])) *
             ((censor_indicator_left_t[ii,]  != 1 | is.na(censor_indicator_left_t[ii,])) &
                (censor_indicator_right_t[ii,] != 1 | is.na(censor_indicator_right_t[ii,]))) +
-            pnorm(cens_lim_l_vec, mu, sd = sqrt(sigma[iclust,,])) * (censor_indicator_left_t[ii,] == 1) +
-            (1 - pnorm(cens_lim_u_vec, mu, sd = sqrt(sigma[iclust,,]))) * (censor_indicator_right_t[ii,] == 1)
+            pnorm(cens_lim_l_vec, mu, sd = sqrt(sigma[iclust,,])) * ((censor_indicator_left_t[ii,] == 1)&(1 - is.na(censor_indicator_left_t[ii,]))) +
+            (1 - pnorm(cens_lim_u_vec, mu, sd = sqrt(sigma[iclust,,]))) * ((censor_indicator_right_t[ii,] == 1)&(1 - is.na(censor_indicator_right_t[ii,])))
         } else {
           left_cens_index  <- which((censor_indicator_left_t[ii,]  == 1) & (1 - is.na(censor_indicator_left_t[ii,])))
           right_cens_index <- which((censor_indicator_right_t[ii,] == 1) & (1 - is.na(censor_indicator_right_t[ii,])))
@@ -102,6 +104,8 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
     dens
   }
   
+  #debug(calculate_dens)
+  
   ncol.prob <- ncol(prob)
   resp <- lapply(seq_len(TT), function(tt) {
     ylist_tt               <- ylist[[tt]]
@@ -134,6 +138,9 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
 }
 
 
+
+
+
 # --- New Response Generation ---
 
 #' Computing the new responses conditioned on the observed censoring.
@@ -152,8 +159,8 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
 #' @export
 
 Estep_y_flowcut <- function(y, X, censor_indicator_left, 
-                    censor_indicator_right, cens_lim_l_vec, 
-                    cens_lim_u_vec, numclust, mu_list,sigma_list){
+                            censor_indicator_right, cens_lim_l_vec, 
+                            cens_lim_u_vec, numclust, mu_list,sigma_list){
   #browser()
   ##Basic Checks
   stopifnot(is.list(y))
@@ -175,24 +182,46 @@ Estep_y_flowcut <- function(y, X, censor_indicator_left,
   
   #debug(cens_cond_normal)  
   
-  res_list <- lapply(seq_len(TT), function(tt) {
-    n_tt <- ntlist[tt]
-    lapply(seq_len(n_tt), function(ii) {
-      #if((debug_global==9)&&(tt==3)&&(ii==71)) debug(cens_cond_normal) 
-      res <- cens_cond_normal(
-        ii, tt, y, X,
-        censor_indicator_left, censor_indicator_right,
-        cens_lim_l_vec, cens_lim_u_vec,
-        numclust, mu_list, sigma_list
-      )
-      # directly return res; don't rebuild mini-lists
-      list(
-        new_responses  = res$new_response_list,
-        mean           = res$all_conditional_means,
-        second_moment  = res$all_conditional_second_moment_list
-      )
+  if(dimdat>1){
+    res_list <- lapply(seq_len(TT), function(tt) {
+      n_tt <- ntlist[tt]
+      lapply(seq_len(n_tt), function(ii) {
+        #if((debug_global==9)&&(tt==3)&&(ii==71)) debug(cens_cond_normal) 
+        res <- cens_cond_normal(
+          ii, tt, y, X,
+          censor_indicator_left, censor_indicator_right,
+          cens_lim_l_vec, cens_lim_u_vec,
+          numclust, mu_list, sigma_list
+        )
+        # directly return res; don't rebuild mini-lists
+        list(
+          new_responses  = res$new_response_list,
+          mean           = res$all_conditional_means,
+          second_moment  = res$all_conditional_second_moment_list
+        )
+      })
     })
-  })
+  }else{
+    res_list <- lapply(seq_len(TT), function(tt) {
+      n_tt <- ntlist[tt]
+      lapply(seq_len(n_tt), function(ii) {
+        #if((debug_global==9)&&(tt==3)&&(ii==71)) debug(cens_cond_normal) 
+        res <- cens_cond_normal_1d(
+          ii, tt, y, X,
+          censor_indicator_left, censor_indicator_right,
+          cens_lim_l_vec, cens_lim_u_vec,
+          numclust, mu_list, sigma_list
+        )
+        # directly return res; don't rebuild mini-lists
+        list(
+          new_responses  = res$new_response_list,
+          mean           = res$all_conditional_means,
+          second_moment  = res$all_conditional_second_moment_list
+        )
+      })
+    })
+  }
+
   
   censored_y_out <- lapply(res_list, function(tt) lapply(tt, `[[`, "new_responses"))
   censored_means_out <- lapply(res_list, function(tt) lapply(tt, `[[`, "mean"))
@@ -231,7 +260,7 @@ Estep_y_flowcut <- function(y, X, censor_indicator_left,
           t(tt)
         } else {
           # If it's a vector, make it a 1-row matrix
-          matrix(tt, nrow = 1)
+          matrix(tt, ncol = 1)
         }
       }
     })
@@ -241,4 +270,3 @@ Estep_y_flowcut <- function(y, X, censor_indicator_left,
               means = out_list$means,
               second_moments = out_list$second_moments))
 }
-

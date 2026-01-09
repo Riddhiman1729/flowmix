@@ -456,49 +456,6 @@ predict.flowmix <- function(object, logits = FALSE, ...){
 
 
 
-##' Helper for making list of densities. Returns list by cluster then time
-##' e.g. access by \code{denslist_by_clust[[iclust]][[tt]]}
-##'
-##' @param ylist T-length list each containing response matrices of size (nt x
-##'   3), which contains coordinates of the 3-variate particles, organized over
-##'   time (T) and with (nt) particles at every time.
-##' @param mu (T x dimdat x numclust) array.
-##' @param dimdat dimension of data.
-##' @param numclust number of clusters.
-##' @param TT number of time points
-##' @param sigma_eig_by_clust Result of running
-##'   \code{eigendecomp_sigma_array(sigma.list[[iter]])}.
-##'
-##' @return numclust-lengthed list of TT-lengthed.
-##'
-##' @noRd
-make_denslist_eigen <- function(ylist, mu,
-                                TT, dimdat, numclust,
-                                sigma_eig_by_clust){
-
-  ## Basic checks
-  assertthat::assert_that(!is.null(sigma_eig_by_clust))
-
-  ## Calculate densities (note to self: nested for loop poses no problems)
-  lapply(1:numclust, function(iclust){
-    mysigma_eig <- sigma_eig_by_clust[[iclust]]
-      lapply(1:TT, function(tt){
-        ## return(dmvnorm_fast(ylist[[tt]],
-        ##                     mu[tt,,iclust],
-        ##                     sigma_eig=mysigma_eig))
-        mn = mu[tt,,iclust]
-        sgm = mysigma_eig$sigma
-        if(dimdat == 1){
-          mn = as.matrix(mn)
-          sgm = sgm %>% as.matrix()
-        }
-        return(dmvnorm_arma_fast(ylist[[tt]],
-                                 mn,
-                                 sgm))
-    })
-  })
-}
-
 
 
 

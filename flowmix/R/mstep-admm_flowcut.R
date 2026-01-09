@@ -24,33 +24,33 @@
 ##' @return Result of M step; a |numclust| length list of (p+1)x(d) matrices,
 ##'   each containing the estimated coefficients for the mean estimation.
 Mstep_beta_admm_flowcut <- function(resp,
-		                    ylist,ynew,
-		                    X,
-		                    mean_lambda = 0,
-		                    sigma,
-		                    sigma_eig_by_clust = NULL,
-		                    first_iter = TRUE,
-		                    censor_indicator_left, 
-		                    censor_indicator_right, 
-		                    cens_lim_l_vec, 
-		                    cens_lim_u_vec,
-		                    
-		                    ## Warm startable variables
-		                    betas = NULL,
-		                    Zs = NULL,
-		                    Ws = NULL,
-		                    Us = NULL,
-		                    ## End of warm startable variables
-		                    
-		                    maxdev = NULL,
-		                    niter = 1E4,
-		                    rho = 100, ## Some default
-		                    err_rel = 1E-3,
-		                    err_abs = 0,
-		                    zerothresh = 1E-6,
-		                    local_adapt = FALSE,
-		                    local_adapt_niter = 5,
-		                    space = 50
+                                    ylist,ynew,
+                                    X,
+                                    mean_lambda = 0,
+                                    sigma,
+                                    sigma_eig_by_clust = NULL,
+                                    first_iter = TRUE,
+                                    censor_indicator_left, 
+                                    censor_indicator_right, 
+                                    cens_lim_l_vec, 
+                                    cens_lim_u_vec,
+                                    
+                                    ## Warm startable variables
+                                    betas = NULL,
+                                    Zs = NULL,
+                                    Ws = NULL,
+                                    Us = NULL,
+                                    ## End of warm startable variables
+                                    
+                                    maxdev = NULL,
+                                    niter = 1E4,
+                                    rho = 100, ## Some default
+                                    err_rel = 1E-3,
+                                    err_abs = 0,
+                                    zerothresh = 1E-6,
+                                    local_adapt = FALSE,
+                                    local_adapt_niter = 5,
+                                    space = 50
 ){
   
   ####################
@@ -113,7 +113,11 @@ Mstep_beta_admm_flowcut <- function(resp,
     ## crossprod(wt.ylong, wt.ylong)
     
     ## Store the third term
-    term3list[[iclust]] =  1 / N * sigmainv %*% yXcentered
+    if(dimdat>1){
+      term3list[[iclust]] =  1 / N * sigmainv %*% yXcentered
+    }else{
+      term3list[[iclust]] =  1 / N * sigmainv[1,1] * yXcentered
+    }
     ybarlist[[iclust]] = obj$ybar
     
     ycentered_list[[iclust]] = ycentered
@@ -140,38 +144,38 @@ Mstep_beta_admm_flowcut <- function(resp,
     
     ## Locally adaptive ADMM.
     res = la_admm_oneclust_flowcut(K = (if(local_adapt) local_adapt_niter else 1),
-                           local_adapt = local_adapt,
-                           iclust = iclust,
-                           niter = niter,
-                           p = p , TT = TT, N = N, dimdat = dimdat, maxdev = maxdev,
-                           schurA = schur_syl_A_by_clust[[iclust]],
-                           schurB = schur_syl_B_by_clust[[iclust]],
-                           term3 = term3list[[iclust]],
-                           sigmainv = sigmainv,
-                           Xinv = Xinv,
-                           Xaug = Xaug,
-                           Xa = Xa,
-                           rho = rho,
-                           rhoinit = rho,
-                           sigma = sigma,
-                           ybar = ybarlist[[iclust]],
-                           Q = Qlist[[iclust]],
-                           lambda = mean_lambda,
-                           resp = resp,
-                           resp.sum = resp.sum,
-                           ylist = ynew[[iclust]], X = X, tX = tX,
-                           err_rel = err_rel,
-                           err_abs = err_abs,
-                           zerothresh = zerothresh,
-                           sigma_eig_by_clust = sigma_eig_by_clust,
-                           space = space,
-                           
-                           ## Warm starts from previous *EM* iteration
-                           first_iter = first_iter,
-                           beta = betas[[iclust]],
-                           U = Us[[iclust]],
-                           Z = Zs[[iclust]],
-                           W = Ws[[iclust]]
+                                   local_adapt = local_adapt,
+                                   iclust = iclust,
+                                   niter = niter,
+                                   p = p , TT = TT, N = N, dimdat = dimdat, maxdev = maxdev,
+                                   schurA = schur_syl_A_by_clust[[iclust]],
+                                   schurB = schur_syl_B_by_clust[[iclust]],
+                                   term3 = term3list[[iclust]],
+                                   sigmainv = sigmainv,
+                                   Xinv = Xinv,
+                                   Xaug = Xaug,
+                                   Xa = Xa,
+                                   rho = rho,
+                                   rhoinit = rho,
+                                   sigma = sigma,
+                                   ybar = ybarlist[[iclust]],
+                                   Q = Qlist[[iclust]],
+                                   lambda = mean_lambda,
+                                   resp = resp,
+                                   resp.sum = resp.sum,
+                                   ylist = ynew[[iclust]], X = X, tX = tX,
+                                   err_rel = err_rel,
+                                   err_abs = err_abs,
+                                   zerothresh = zerothresh,
+                                   sigma_eig_by_clust = sigma_eig_by_clust,
+                                   space = space,
+                                   
+                                   ## Warm starts from previous *EM* iteration
+                                   first_iter = first_iter,
+                                   beta = betas[[iclust]],
+                                   U = Us[[iclust]],
+                                   Z = Zs[[iclust]],
+                                   W = Ws[[iclust]]
     )
     
     ## Store the results
@@ -225,7 +229,7 @@ Mstep_beta_admm_flowcut <- function(resp,
 ##'
 ##' @noRd
 la_admm_oneclust_flowcut <- function(K,
-                             ...){
+                                     ...){
   #browser()
   ## Initialize arguments for ADMM.
   args <- list(...)
@@ -341,40 +345,40 @@ outer_converge <- function(objectives){
 ##' @return List containing |beta|, |yhat|, |resid_mat|, |fits|.
 ##' @noRd
 admm_oneclust_flowcut<- function(iclust, niter, Xtilde, yvec, p,
-                          TT, N, dimdat, maxdev,
-                          Xa,
-                          rho,
-                          rhoinit,
-                          Xinv,
-                          schurA,
-                          schurB,
-                          term3,
-                          sigmainv,
-                          Xaug,
-                          
-                          ## Xa, rho,
-                          ## X0, I_aug,
-                          ## intercept_inds,
-                          ybar,
-                          Q,
-                          lambda,
-                          resp,
-                          resp.sum,
-                          ylist, X, tX, err_rel, err_abs,
-                          zerothresh,
-                          ## Warm startable variables
-                          beta,
-                          Z,
-                          W,
-                          U,
-                          first_iter,## Not used
-                          outer_iter,
-                          ## End of warm startable variables
-                          local_adapt,
-                          sigma,
-                          sigma_eig_by_clust,
-                          space = 20){
-  
+                                 TT, N, dimdat, maxdev,
+                                 Xa,
+                                 rho,
+                                 rhoinit,
+                                 Xinv,
+                                 schurA,
+                                 schurB,
+                                 term3,
+                                 sigmainv,
+                                 Xaug,
+                                 
+                                 ## Xa, rho,
+                                 ## X0, I_aug,
+                                 ## intercept_inds,
+                                 ybar,
+                                 Q,
+                                 lambda,
+                                 resp,
+                                 resp.sum,
+                                 ylist, X, tX, err_rel, err_abs,
+                                 zerothresh,
+                                 ## Warm startable variables
+                                 beta,
+                                 Z,
+                                 W,
+                                 U,
+                                 first_iter,## Not used
+                                 outer_iter,
+                                 ## End of warm startable variables
+                                 local_adapt,
+                                 sigma,
+                                 sigma_eig_by_clust,
+                                 space = 20){
+
   ## Initialize the variables ###
   resid_mat = matrix(NA, nrow = ceiling(niter/5), ncol = 4)
   colnames(resid_mat) = c("primresid", "primerr", "dualresid", "dualerr")
@@ -596,7 +600,7 @@ center_X <- function(iclust, resp.sum, X){
 
 ##' @noRd
 weight_ylist <- function(iclust, resp, resp.sum, ylist){
-  
+  #browser()
   ylist=ylist[[iclust]]
   ## Setup
   dimdat = ncol(ylist[[1]])
@@ -612,7 +616,11 @@ weight_ylist <- function(iclust, resp, resp.sum, ylist){
   
   ## Grand mean of data
   resp.sum.thisclust = sum(resp.sum[,iclust])
-  ybar = Reduce("+", weighted_ysum) / resp.sum.thisclust
+  if(dimdat>1){
+    ybar = Reduce("+", weighted_ysum) / resp.sum.thisclust
+  }else{
+    ybar = sum(sapply(weighted_ysum, sum))/resp.sum.thisclust
+  }
   
   ## Centered weighted ylist
   weighted_ybar = resp.sum[,iclust] * matrix(ybar, TT, dimdat, byrow=TRUE)
