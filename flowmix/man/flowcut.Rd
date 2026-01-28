@@ -5,7 +5,7 @@
 \title{Main function for our method. Repeats the EM algorithm with |nrep| restarts
 (5 by default).}
 \usage{
-flowcut(..., nrep = 5)
+flowcut(..., nrep = 5, mc.cores = 1)
 }
 \arguments{
 \item{...}{Arguments for \code{flowcut_once()}.}

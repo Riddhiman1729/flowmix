@@ -233,7 +233,7 @@ flowcut_once <- function(ylist, X,
   
   start.time = Sys.time()
   for(iter in 2:niter){
-    # print(iter)
+     #print(iter)
     # if(iter==7){
     #   debug(Mstep_alpha)
     #   debug(Mstep_beta_admm_flowcut)
@@ -340,9 +340,9 @@ flowcut_once <- function(ylist, X,
     
     for(tt in 1:TT){
       left_cens_index_temp[[tt]] = 
-        cbind(rep(tt,nrow(cens_ind_left[[tt]])), seq(1,nrow(cens_ind_left[[tt]]),1),cens_ind_left[[tt]])
+        cbind(rep(tt,nrow(cens_indicator_list_left[[tt]])), seq(1,nrow(cens_indicator_list_left[[tt]]),1),cens_indicator_list_left[[tt]])
       right_cens_index_temp[[tt]] = 
-        cbind(rep(tt,nrow(cens_ind_right[[tt]])), seq(1,nrow(cens_ind_right[[tt]]),1),cens_ind_right[[tt]])
+        cbind(rep(tt,nrow(cens_indicator_list_right[[tt]])), seq(1,nrow(cens_indicator_list_right[[tt]]),1),cens_indicator_list_right[[tt]])
     }
     
     temp_mat_left = do.call(rbind, left_cens_index_temp)

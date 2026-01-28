@@ -26,7 +26,7 @@ reorder_kl <- function(newres, origres, ylist_particle, fac = 100, verbose = FAL
   ylist_particle_small = Map(function(ind, y){ y[ind,,drop = FALSE]  }, indlist, ylist_particle)
 
   ## Calculate new responsibilities
-  resp_orig_small <- Estep(origres$ mn, origres$sigma, origres$prob,
+  resp_orig_small <- Estep(origres$mn, origres$sigma, origres$prob,
                            ylist = ylist_particle_small,
                            numclust = origres$numclust, first_iter = TRUE)
   resp_new_small <- Estep(newres$mn, newres$sigma, newres$prob,

@@ -47,6 +47,9 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
                              first_iter) {
     #browser() 
     #print(c(tt,iclust))
+    # if((iter==3)&(tt==20)&(iclust==2)){
+    #   browser()
+    # }
     mu   <- mn[tt, , iclust]
     nt   <- nrow(y)
     dens <- numeric(nt)

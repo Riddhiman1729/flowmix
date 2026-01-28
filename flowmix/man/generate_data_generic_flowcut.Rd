@@ -39,7 +39,7 @@ have cluster relative abundances have a ratio of 6:1:1:0. In the later
 half, the fourth cluster appears, and the ratio becomes 6:1:1:1.}
 }
 \value{
-list containing ylist, X
+list containing ylist, X with censoting indicators
 }
 \description{
 Generic 2d or 3d synthetic data generation.

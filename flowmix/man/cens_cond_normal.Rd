@@ -17,20 +17,6 @@ cens_cond_normal(
   mu_list,
   sigma_list
 )
-
-cens_cond_normal(
-  ii,
-  tt,
-  y,
-  X,
-  censor_indicator_left,
-  censor_indicator_right,
-  cens_lim_l_vec,
-  cens_lim_u_vec,
-  numclust,
-  mu_list,
-  sigma_list
-)
 }
 \arguments{
 \item{ii}{the particle index for which the censored}
@@ -57,11 +43,7 @@ cens_cond_normal(
 }
 \value{
 a list for the means and variances of the censored/uncensored observation ii at time tt per each cluster.
-
-a list for the means and variances of the censored/uncensored observation ii at time tt per each cluster.
 }
 \description{
-Compute the moments of a d-dimensional truncated Gaussian with zero mean with given truncation limits.
-
 Compute the moments of a d-dimensional truncated Gaussian with zero mean with given truncation limits.
 }

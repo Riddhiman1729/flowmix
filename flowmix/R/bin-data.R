@@ -326,3 +326,176 @@ trim_one_cytogram <- function(ybin, counts){
   }
   return(list(ybin = ybin, counts = counts))
 }
+
+###Code for 2d binning########
+
+bin_one_cytogram_2d <- function(y, manual.grid, qc = NULL) {
+  ## Basic checks
+  dimdat <- ncol(y)  # Will be 2 for 2D data
+  
+  if (dimdat != 2) {
+    warning("Expected 2D data, but y has ", dimdat, " columns.")
+  }
+  
+  ## Obtain the midpoints of each box (d x d array for 2D)
+  midpoints <- make_midpoints_2d(manual.grid)
+  
+  ## Count the points in each of the boxes (d x d array for 2D)
+  counts <- make_counts_2d(y, manual.grid, qc)
+  
+  ## Aggregate all of this into a (d^2 x 3 array) [x, y, count]
+  ybin_all <- make_ybin_2d(counts, midpoints, colnames(y))
+  
+  ## Extract the ybin and counts
+  ybin <- ybin_all[, 1:dimdat, drop = FALSE]
+  counts <- ybin_all[, dimdat + 1]
+  
+  if (!is.null(colnames(y))) {
+    stopifnot(all(colnames(y) == colnames(ybin_all)[1:dimdat]))
+  }
+  
+  obj <- trim_one_cytogram(ybin = ybin, counts = counts)
+  
+  # Create sparse representation
+  sparsecounts <- Matrix::sparseVector(
+    obj$counts,
+    1:length(obj$counts),
+    length(obj$counts)
+  )
+  
+  return(list(
+    ybin = obj$ybin,
+    counts = obj$counts,
+    sparsecounts = sparsecounts
+  ))
+}
+
+
+####Make Midpoints 2d########
+##' Get the midpoints in a grid of any dimension
+##'
+##' @param grid List containing break points for each dimension
+##'
+##' @return List containing midpoints for each dimension
+##' @noRd
+make_midpoints_2d<- function(grid) {
+  # Calculate midpoints for each dimension
+  midpoints <- lapply(grid, function(breaks) {
+    # Simple midpoint calculation: average of consecutive breaks
+    (breaks[-length(breaks)] + breaks[-1]) / 2
+  })
+  
+  # Preserve names if they exist
+  if (!is.null(names(grid))) {
+    names(midpoints) <- names(grid)
+  }
+  
+  return(midpoints)
+}
+####Make Counts 2d############
+##' Takes a cytogram y that is a (nt x 2) matrix, and makes it into a 2D
+##' array that contains the counts for each box.
+##'
+##' @param y Single cytogram (2D data).
+##' @param grid Grid, created using \code{make_grid()}, list of length 2.
+##' @param qc Biomass (optional).
+##'
+##' @return All counts, as a 2-dimensional array.
+##' @noRd
+make_counts_2d <- function(y, grid, qc = NULL) {
+  
+  # Validate inputs
+  if (length(grid) != 2) {
+    stop("grid must be a list of length 2 for 2D data")
+  }
+  
+  if (ncol(y) != 2) {
+    stop("y must have 2 columns for 2D data")
+  }
+  
+  ## Helper: works on one row. Identifies which box a point belongs to
+  identify_box_2d <- function(grid, yrow) {
+    # yrow should be a vector of length 2: [x, y]
+    c(
+      max(which(yrow[1] >= grid[[1]])),  # x-dimension box index
+      max(which(yrow[2] >= grid[[2]]))   # y-dimension box index
+    )
+  }
+  
+  ## Get dimensions
+  nt <- nrow(y)
+  nn_x <- length(grid[[1]]) - 1  # number of boxes in x dimension
+  nn_y <- length(grid[[2]]) - 1  # number of boxes in y dimension
+  
+  ## Initialize counts array (2D)
+  counts <- matrix(0, nrow = nn_x, ncol = nn_y)
+  
+  if (nt == 0) return(counts)
+  
+  ## Cycle through all rows
+  for (ii in 1:nt) {
+    ijk <- identify_box_2d(grid, y[ii, ])
+    
+    # Fix indexing for right-edge points
+    ijk <- pmin(ijk, c(nn_x, nn_y))
+    
+    # Determine weight to add
+    to_add <- if (is.null(qc)) 1 else qc[ii]
+    
+    # Add to counts (2D array)
+    counts[ijk[1], ijk[2]] <- counts[ijk[1], ijk[2]] + to_add
+  }
+  
+  return(counts)
+}
+
+##' Main function for binning many cytograms (\code{ylist}). Only works for
+##' \code{ylist} whose dimension is 2.
+##'
+##' @param ylist \code{TT} lengthed list of (\code{nt} by \code{dimdat})
+##'   matrices.
+##' @param manual.grid grid, produced using \code{make_grid()}.
+##' @param qclist Biomass (Qc) of each particle. Defaults to NULL.
+##' @param mc.cores Use for multiple-core calculations.
+##' @param verbose TRUE for loudness.
+##'
+##' @return List containing *trimmed* ybin (a x 3) and counts (a).
+##'
+##' @export
+bin_many_cytograms_2d <- function(ylist, manual.grid, verbose = FALSE, mc.cores = 1, qclist = NULL){
+  
+  ## Basic checks
+  TT = length(ylist)
+  if(verbose) cat(fill = TRUE)
+  ## assertthat::assert_that(ncol(ylist[[1]]) == 3)
+  dimdat = ncol(ylist[[1]])
+  
+  ## Bin each cytogram:
+  reslist = parallel::mclapply(1:TT, function(tt){
+    ## reslist = lapply(1:TT, function(tt){
+    if(verbose & (tt %% 10 == 0 )) print_progress(tt, TT, "binning")
+    bin_one_cytogram_2d(ylist[[tt]],
+                     manual.grid = manual.grid,
+                     qc = qclist[[tt]])
+  }, mc.cores = mc.cores)
+  
+  ## Gather results and return
+  ybin_list = lapply(reslist, function(res) res$ybin)
+  counts_list = lapply(reslist, function(res) res$counts)
+  sparsecounts_list = lapply(reslist, function(res) res$sparsecounts)
+  ybin_all = make_ybin(counts = NULL,  make_midpoints(manual.grid),
+                       colnames(ylist[[1]]), dimdat)
+  
+  ## Name everything
+  names(ybin_list) = names(ylist)
+  names(counts_list) = names(ylist)
+  names(sparsecounts_list) = names(ylist)
+  
+  if(verbose) cat(fill=TRUE)
+  return(list(ybin_list = ybin_list,
+              counts_list = counts_list,
+              sparsecounts_list = sparsecounts_list,
+              ybin_all = ybin_all))
+}
+
+

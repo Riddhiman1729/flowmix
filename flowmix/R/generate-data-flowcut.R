@@ -136,9 +136,8 @@ generate_data_generic_flowcut <- function(p = 5, TT = 50, fac = 1, nt = 1000, di
     for(coord in 1:dimdat){
       cens_ind_left[[tt]][,coord] = ifelse(ylist[[tt]][,coord]<=cens_lim_l_vec[coord],1,NA)
       cens_ind_right[[tt]][,coord] = ifelse(ylist[[tt]][,coord]>=cens_lim_u_vec[coord],1,NA)
-      
-      
-      ylist_cens[[tt]][,coord]=cens_lim_l_vec[coord]*ifelse(is.na(cens_ind_left[[tt]][,coord]),0,1) + cens_lim_u_vec[coord]*ifelse(is.na(cens_ind_right[[tt]][,coord]),0,1)+
+    
+      ylist_cens[[tt]][,coord]=ifelse(is.na(cens_ind_left[[tt]][,coord]),0,cens_lim_l_vec[coord]) + ifelse(is.na(cens_ind_right[[tt]][,coord]),0,cens_lim_u_vec[coord])+
         ylist[[tt]][,coord]*(1-ifelse(is.na(cens_ind_left[[tt]][,coord]),0,1)-ifelse(is.na(cens_ind_right[[tt]][,coord]),0,1)+ifelse(is.na(cens_ind_left[[tt]][,coord]),0,1)*ifelse(is.na(cens_ind_right[[tt]][,coord]),0,1))
     }
   }

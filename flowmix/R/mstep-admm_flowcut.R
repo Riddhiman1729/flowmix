@@ -80,7 +80,7 @@ Mstep_beta_admm_flowcut <- function(resp,
     
     ## Center y and X
     #debug(weight_ylist)
-    obj <- weight_ylist(iclust, resp, resp.sum, ynew)
+    obj <- weight_ylist_flowcut(iclust, resp, resp.sum, ynew)
     ycentered <- obj$ycentered
     Xcentered <- center_X(iclust, resp.sum, X)
     yXcentered = ycentered %*% Xcentered
@@ -599,7 +599,7 @@ center_X <- function(iclust, resp.sum, X){
 
 
 ##' @noRd
-weight_ylist <- function(iclust, resp, resp.sum, ylist){
+weight_ylist_flowcut <- function(iclust, resp, resp.sum, ylist){
   #browser()
   ylist=ylist[[iclust]]
   ## Setup

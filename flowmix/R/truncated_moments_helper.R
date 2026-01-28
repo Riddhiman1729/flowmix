@@ -90,9 +90,9 @@ cond_mean_var_func <- function(y,mu,Sigma,observed_dims){
   
   ## Basic check
   dimdat = length(y)
-  stopifnot(length(observed_dims) == 0 || all(observed_dims %in% seq_len(dimdat)))
-  stopifnot(length(mu)==dimdat)
-  stopifnot(all(dim(Sigma)==dimdat))
+  #stopifnot(length(observed_dims) == 0 || all(observed_dims %in% seq_len(dimdat)))
+  #stopifnot(length(mu)==dimdat)
+  #stopifnot(all(dim(Sigma)==dimdat))
   
   ##Main Body
   if(dimdat>1){
@@ -385,13 +385,14 @@ moment_cal_func_centered_1d <- function(a_vec,b_vec,Sigma){
       mean_vec = mean 
       Sigma_raw_mat = Sigma
     }
+  
     if((a_vec == -Inf)&(b_vec != Inf)){
-      mean_vec = Sigma * (stats::dnorm(b_vec, 0, Sigma)) / alpha
-      Sigma_raw_mat = Sigma^2+ (Sigma/alpha)*(b_vec) *(stats::dnorm(b_vec, 0, Sigma))
+      mean_vec = (-Sigma) * (stats::dnorm(b_vec, 0, Sigma)) / alpha
+      Sigma_raw_mat = Sigma^2- (Sigma/alpha)*(b_vec) *(stats::dnorm(b_vec, 0, Sigma))
     }
     if((a_vec != -Inf)&(b_vec == Inf)){
-      mean_vec = (-Sigma) * (stats::dnorm(a_vec, 0, Sigma)) / alpha
-      Sigma_raw_mat = Sigma^2- (Sigma/alpha)*(a_vec) *(stats::dnorm(a_vec, 0, Sigma))
+      mean_vec = Sigma * (stats::dnorm(a_vec, 0, Sigma)) / alpha
+      Sigma_raw_mat = Sigma^2+ (Sigma/alpha)*(a_vec) *(stats::dnorm(a_vec, 0, Sigma))
     }
 
   
@@ -650,6 +651,7 @@ cens_cond_normal_1d <- function(ii,tt,y,X,censor_indicator_left,
     }  
     
     if((censor_indicator_left[[tt]][ii]==1)&(1-is.na(censor_indicator_left[[tt]][ii]))){
+      #browser()
           prob_cens_conditional[[iclust]] = pnorm(cens_lim_l_vec, mean = mu, sd = sqrt(Sigma))
           astar_vec = -Inf
           bstar_vec = cens_lim_l_vec -mu
@@ -662,13 +664,19 @@ cens_cond_normal_1d <- function(ii,tt,y,X,censor_indicator_left,
           
           all_cond_mean_list[[iclust]] = mu + saved_mean
           
-          all_cond_second_moment_list[[iclust]] = mu%*% t(mu)+ mu %*% t(saved_mean)+
-            saved_mean %*% t(mu) +
+          all_cond_second_moment_list[[iclust]] = mu^2+2* mu * t(saved_mean)+
             saved_second_moment_raw
+          if(all_cond_second_moment_list[[iclust]]<=0){
+            browser()
+            debug(moment_cal_func_centered_1d)
+            moment_cal_func_centered_1d(astar_vec,bstar_vec,Sigma)
+          }
             
     }
     
     if((censor_indicator_right[[tt]][ii]==1)&(1-is.na(censor_indicator_right[[tt]][ii]))){
+      #browser()
+      #debug(moment_cal_func_centered_1d)
       prob_cens_conditional[[iclust]] = 1-pnorm(cens_lim_u_vec, mean = mu, sd = sqrt(Sigma))
       
       astar_vec = cens_lim_u_vec -mu
@@ -681,7 +689,14 @@ cens_cond_normal_1d <- function(ii,tt,y,X,censor_indicator_left,
       
       all_cond_mean_list[[iclust]] = mu+saved_mean
       
-      all_cond_second_moment_list[[iclust]] = mu%*% t(mu)+ mu%*% t(saved_mean)+ saved_mean %*% t(mu) + saved_second_moment_raw
+      all_cond_second_moment_list[[iclust]] = mu^2+ 2* mu* t(saved_mean) +
+        saved_second_moment_raw
+      
+      if(all_cond_second_moment_list[[iclust]]<=0){
+        browser()
+        debug(moment_cal_func_centered_1d)
+        moment_cal_func_centered_1d(astar_vec,bstar_vec,Sigma)
+      }
       
     }
     
