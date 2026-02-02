@@ -381,3 +381,152 @@ generate_1d_data_flowcut <- function(p=5 ,TT, nt=1000 , left_limit, right_limit,
               ntlist = ntlist))
   
 }
+
+
+
+##' Generic 2d data with 2 clusters
+##'
+##' @param TT Number of timepoints.
+##' @param fac Defaults to 1, and determines size of covariance matrix.
+##' @param nt Number of particles in each time point.
+##' @param cens_lim_l_vec lower censoring limits; a vector of size dimension.
+##' @param cens_lim_u_vec upper censoring limits; a vector of size dimension.
+##'   points. Defaults to 3/4, in which case the first half of the time points
+##'   have cluster relative abundances have a ratio of 6:1:1:0. In the later
+##'   half, the fourth cluster appears, and the ratio becomes 6:1:1:1.
+##'
+##'
+##' @return list containing ylist, X with censoting indicators
+##' @export
+##'
+
+
+
+gendat_flowcut <- function(TT = 50, fac = 1, nt = 1000,
+                           cens_lim_l_vec,
+                           cens_lim_u_vec){
+  
+  ## Fixed dimension and numclust
+  dimdat = 2
+  numclust = 2
+  
+  if(length(cens_lim_l_vec) != length(cens_lim_u_vec)){
+    stop("Error - censoring lengths are not equal.")
+  }
+  
+  if(length(cens_lim_l_vec)!=dimdat){
+    stop("Error - censoring does not have the correct dimension.")
+  }
+  
+  
+  
+  ## Generate covariates.
+  p = 2
+  X = matrix(stats::rnorm(TT*p), ncol = p, nrow = TT)
+  X[,1] = sin((1:TT)/TT * 4 * pi)
+  X[,2] = c((1:(TT/2)), ((TT/2):1))/(TT/2)
+  ## X[,2] = c(rep(0, TT/2), rep(1, TT/2))
+  ## X = scale(X)
+  Xa = cbind(rep(1,TT), X)
+  
+  ## Generate coefficients. ## this should be (dimdat x p) = (2d x 2)
+  beta11 = cbind(c(1,0), c(1,0)) ## Only affected by x1
+  intercept1 = c(0,0)
+  intercept2 = c(1.5,1.5)
+  
+  beta1 = rbind(intercept1, beta11/5)
+  beta2 = rbind(intercept2, -beta11/2)
+  
+  beta1 = rbind(beta1, matrix(0, nrow = p-2, ncol = 2))
+  beta2 = rbind(beta2, matrix(0, nrow = p-2, ncol = 2))
+  
+  betalist = list(beta1, beta2)
+  
+  ## Generate the four response /components/.
+  ## sigma = diag(rep(fac, 2))
+  mn1 = Xa %*% beta1
+  mn2 = Xa %*% beta2
+  
+  mnlist = list(mn1, mn2)
+  
+  ##Make into array
+  mn_array = array(NA, dim= c(TT,dimdat,numclust))
+  for(jj in 1:2){
+    mn_array[,,jj] = mnlist[[jj]]
+  }
+  
+  ## Define mixture components
+  ##pi1 = ##rep(prob1, TT) ## defaults to 3/4
+  
+  a = 1-3*X[,2]
+  pi2 = exp(a)/(1+ exp(a))
+  pi1 = 1-pi2
+  pilist =  list(pi1, pi2)
+  
+  ## make a mixture component matrix
+  pimat = do.call(cbind, pilist)
+  pimat = pimat/rowSums(pimat)
+  
+  
+  ## Define the number of points total
+  ## ntbase = 1000
+  ntlist = c(rep(nt, TT/2), rep(nt*9/8, TT/2))
+  ntlist = apply(ntlist * cbind(pi1,pi2), 1, sum)
+  
+  ## Define the covariances
+  sigma1 = rbind(c(3,0),c(0,3))
+  sigma2 = rbind(c(4,2),c(2,4))
+  
+  sigmalist = list(sigma1, sigma2)
+  sigmalist = lapply(sigmalist, function(a) a/3*fac)
+  stopifnot(all(unlist(lapply(sigmalist, dim)) == dimdat))
+  
+  ## Then, the resulting |y| is a probabistic mixture of the /components/
+  datapoints = sapply(1:TT, function(tt){
+    dat = get_mixture_at_timepoint(tt, ntlist[[tt]], mnlist, pilist,
+                                   sigmalist = sigmalist)
+  })
+  
+  #print(datapoints[[1]])
+  
+  ## Reformat
+  ylist = lapply(datapoints, cbind)
+  classlist = lapply(ylist, function(a)a[,"membership"])
+  '%ni%' <- function(x, y){  return( !(x %in% y) )}
+  ylist = lapply(ylist, function(a){
+    a[,which(colnames(a) %ni% "membership")]
+  })
+  
+  ylist_cens=list()
+  cens_ind_left=list()
+  cens_ind_right=list()
+  for(tt in 1:TT){
+    cens_ind_left[[tt]] = matrix(NA,nrow(ylist[[tt]]), ncol(ylist[[tt]]))
+    cens_ind_right[[tt]] = matrix(NA,nrow(ylist[[tt]]), ncol(ylist[[tt]]))
+    ylist_cens[[tt]] = matrix(NA,nrow(ylist[[tt]]), ncol(ylist[[tt]]))
+    for(coord in 1:dimdat){
+      cens_ind_left[[tt]][,coord] = ifelse(ylist[[tt]][,coord]<=cens_lim_l_vec[coord],1,NA)
+      cens_ind_right[[tt]][,coord] = ifelse(ylist[[tt]][,coord]>=cens_lim_u_vec[coord],1,NA)
+      
+      ylist_cens[[tt]][,coord]=ifelse(is.na(cens_ind_left[[tt]][,coord]),0,cens_lim_l_vec[coord]) + ifelse(is.na(cens_ind_right[[tt]][,coord]),0,cens_lim_u_vec[coord])+
+        ylist[[tt]][,coord]*(1-ifelse(is.na(cens_ind_left[[tt]][,coord]),0,1)-ifelse(is.na(cens_ind_right[[tt]][,coord]),0,1)+ifelse(is.na(cens_ind_left[[tt]][,coord]),0,1)*ifelse(is.na(cens_ind_right[[tt]][,coord]),0,1))
+    }
+  }
+  
+  
+  ## Return the results
+  return(list(ylist = ylist_cens,
+              classlist = classlist,
+              censor_indicator_left = cens_ind_left,
+              censor_indicator_right = cens_ind_right,
+              X = X,
+              Xa = Xa,
+              sigmalist = sigmalist,
+              betalist = betalist,
+              ntlist = ntlist,
+              pilist = pilist,
+              pimat = pimat,
+              datapoints = datapoints))
+}
+
+
