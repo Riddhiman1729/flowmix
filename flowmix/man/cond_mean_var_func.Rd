@@ -18,6 +18,10 @@ cond_mean_var_func(y, mu, Sigma, observed_dims)
 \value{
 list containing mean and variance of the conditional multivariate
   normal.
+Compute conditional (lower-dimensional) multivariate normal (TODO: if needed, y can turned into a matrix).
+
+list containing mean and variance of the conditional multivariate
+  normal.
 }
 \description{
 Compute conditional (lower-dimensional) multivariate normal (TODO: if needed, y can turned into a matrix).
