@@ -1,0 +1,220 @@
+This code tests `flowcut()`.
+
+```{r}
+install.packages("~/repos/flowmix-fork/flowmix", type = 'source', repos = NULL)
+
+## Possibly remove all .o and .so files in src/. before doing this.
+devtools::document("~/repos/flowmix-fork/flowmix")
+devtools::build("~/repos/flowmix-fork/flowmix", vignettes = FALSE)
+devtools::install("~/repos/flowmix-fork/flowmix", vignettes = FALSE)
+```
+
+
+Generate some data.
+
+```{r}
+library(flowmix)
+## library(parallel)
+##library(parallelly)
+library(tidyverse)
+  
+## General setup
+TT = 100
+nt = 1000
+prob1 = 3/4
+fac = .2
+dimdatt = 2
+numclust = 2
+##censoring_limit = 3.5
+censoring_limit = 5
+maxdev = .5
+## maxdev = .225
+  
+## Amount of censoring
+cens_vec_1 = c(-Inf,-Inf,rep(-Inf, dimdatt-2))
+cens_vec_2 = c(Inf,censoring_limit, rep(Inf, dimdatt-2))
+  
+  
+## Generate data
+set.seed(100)
+datobj <-   gendat_flowcut(TT = TT, fac = .2 , nt = nt,
+                           cens_lim_l_vec = cens_vec_1,
+                           cens_lim_u_vec = cens_vec_2)
+datobj %>% list2env(envir = .GlobalEnv) %>% invisible()
+
+## Roughly Plotting the data
+y1 = ylist %>% sapply(function(a) a[,1])  %>% do.call(rbind, .)
+y2 = ylist %>% sapply(function(a) a[,2])  %>% do.call(rbind, .)
+##par(mfrow=c(1,2))
+## y1 %>% matplot(type='p', pch =1, col = 'grey')
+##abline(h=3.5, col = 'red')
+y2 %>% matplot(type='p', pch = 16, col = rgb(0,0,0,0.1), main = "Dimension 2")
+abline(h=censoring_limit, col = 'red')
+
+  
+## Fit model
+
+devtools::load_all("~/repos/flowmix-fork/flowmix")
+
+## 
+flowcut_profvis = profvis::profvis({
+  set.seed(99)
+  oneres_flowcut <- flowcut_once(
+      ylist = ylist,
+      countslist = NULL,
+      X = X,
+      prob_lambda = 0.001,
+      mean_lambda = 0.001,
+      cens_indicator_list_left  = censor_indicator_left,
+      cens_indicator_list_right = censor_indicator_right,
+      cens_lim_vec_lower     = cens_vec_1,
+      cens_lim_vec_upper     = cens_vec_2,
+      maxdev = maxdev,
+      numclust = numclust,
+      verbose = TRUE
+  )
+})
+saveRDS(flowcut_profvis, file = file.path("~/Downloads/flowcut-profvis.RDS"))
+
+
+## Visualize the model
+ylist[[1]]
+idim=1
+oneres$mn %>% .[,,idim] %>% matplot()
+
+## Visualize it in dim2
+y2 %>% matplot(type='p', pch = 16, col = rgb(0,0,0,0.1), main = "Dimension 2")
+abline(h=3.5, col = 'red')
+idim = 2
+oneres$mn %>% .[,idim,] %>% matlines(lty = 2, col = 'red')
+oneres$mn %>% .[,idim,]
+
+meanmats = lapply(datobj$betalist, function(mybeta) datobj$Xa %*% mybeta)
+meanmats[[1]] %>% .[,idim,drop=FALSE] %>% matlines(lwd = 2)
+meanmats[[2]] %>% .[,idim,drop=FALSE] %>% matlines(lwd = 2)
+
+## See why it doesn't run on real data.
+
+```
+
+This is the time that flowmix takes
+
+```{r}
+
+devtools::load_all("~/repos/flowmix-fork/flowmix")
+
+flowmix_profvis = profvis::profvis({
+  set.seed(99)
+  oneres_flowmix <- flowmix_once(
+      ylist = ylist,
+      countslist = NULL,
+      X = X,
+      prob_lambda = 0.0001,
+      mean_lambda = 0.0001,
+      maxdev = maxdev,
+      numclust = numclust,
+      verbose = TRUE
+)
+})
+flowmix_profvis
+
+oneres_flowmix
+
+```
+
+Comparing flowmix and flowcut times
+
+
+```{r}
+censoring_limits = seq(from=4,to=1, length = 10)
+number_of_censored_points =c()
+flowcut_times = c()
+for(icensor in 1:8){
+  print(icensor)
+
+  ## Generate data
+  censoring_limit = censoring_limits[icensor]
+  maxdev = .5
+  
+  ## Amount of censoring
+  cens_vec_1 = c(-Inf,-Inf,rep(-Inf, dimdatt-2))
+  cens_vec_2 = c(Inf,censoring_limit, rep(Inf, dimdatt-2))
+
+  nt = 300
+ 
+  ## Generate data
+  set.seed(100)
+  datobj <-   gendat_flowcut(TT = TT, fac = .2 , nt = nt,
+                             cens_lim_l_vec = cens_vec_1,
+                             cens_lim_u_vec = cens_vec_2)
+  datobj %>% list2env(envir = .GlobalEnv) %>% invisible()
+
+  ## Save number of censored points
+  convert_obj = my_convert(ylist, censor_indicator_left,
+                           censor_indicator_right)
+  idx_cens_list = convert_obj$idx_cens_list
+  number_of_censored_points[icensor] = sapply(idx_cens_list, length) %>% sum()
+
+  
+  begin_time = Sys.time()
+  oneres <- flowcut_once(
+      ylist = ylist,
+      countslist = NULL,
+      X = X,
+      prob_lambda = 0.0001,
+      mean_lambda = 0.0001,
+      cens_indicator_list_left  = censor_indicator_left,
+      cens_indicator_list_right = censor_indicator_right,
+      cens_lim_vec_lower     = cens_vec_1,
+      cens_lim_vec_upper     = cens_vec_2,
+      maxdev = maxdev,
+      numclust = numclust
+  )
+  end_time = Sys.time()
+  total_time = (end_time - begin_time) %>% as.numeric()
+  flowcut_times[icensor] = total_time/(oneres$final.iter-1)
+}
+
+flowmix_time = sapply(1, function(ii){
+begin_time = Sys.time()
+  oneres <- flowmix_once(
+      ylist = ylist,
+      countslist = NULL,
+      X = X,
+      prob_lambda = 0.0001,
+      mean_lambda = 0.0001,
+      maxdev = maxdev,
+      numclust = numclust,
+      verbose = TRUE
+  )
+end_time = Sys.time()
+total_time = (end_time - begin_time) %>% as.numeric()
+total_time/(oneres$final.iter-1)
+})
+
+
+## Plot the results
+plot(x = censoring_limits[1:8],
+     y = flowcut_times,type='o', col = 'black', lwd = 2, ylim = c(0,max(flowcut_times)),
+     main = "Per-iteration times", ylab = "", xlab = "censoring limit")
+abline(h=flowmix_time, col = 'red', lwd = 2, lty = 2)
+legend("topright", legend = c("flowcut", "flowmix"), lty = c(1,2), col = c(1,2), lwd = c(2,2))
+flowcut_times %>% round(2)
+flowmix_time %>% round(3)
+
+par(mfrow=c(1,2))
+plot(
+    x = number_of_censored_points[1:8],
+     y = flowcut_times,type='o', col = 'black', lwd = 2, ylim = c(0,max(flowcut_times)),
+    main = "Per-iteration times", ylab = "", xlab = "Number of censored points", log="x")
+abline(h=flowmix_time, col = 'red', lwd = 2, lty = 2)
+legend("topright", legend = c("flowcut", "flowmix"), lty = c(1,2), col = c(1,2), lwd = c(2,2))
+
+plot(
+    x = number_of_censored_points[1:8],
+     y = flowcut_times,type='o', col = 'black', lwd = 2, ylim = c(0,max(flowcut_times)),
+    main = "Per-iteration times", ylab = "", xlab = "Number of censored points")
+abline(h=flowmix_time, col = 'red', lwd = 2, lty = 2)
+legend("topright", legend = c("flowcut", "flowmix"), lty = c(1,2), col = c(1,2), lwd = c(2,2))
+```
+

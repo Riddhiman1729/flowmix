@@ -24,7 +24,8 @@
 ##' @return Result of M step; a |numclust| length list of (p+1)x(d) matrices,
 ##'   each containing the estimated coefficients for the mean estimation.
 Mstep_beta_admm_flowcut <- function(resp,
-                                    ylist,ynew,
+                                    ylist,
+                                    ynew,
                                     X,
                                     mean_lambda = 0,
                                     sigma,
@@ -600,8 +601,8 @@ center_X <- function(iclust, resp.sum, X){
 
 ##' @noRd
 weight_ylist_flowcut <- function(iclust, resp, resp.sum, ylist){
-  #browser()
-  ylist=ylist[[iclust]]
+
+  ylist = ylist[[iclust]]
   ## Setup
   dimdat = ncol(ylist[[1]])
   TT = length(ylist)

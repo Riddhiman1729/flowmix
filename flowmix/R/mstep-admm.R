@@ -23,6 +23,11 @@
 ##'   each containing the estimated coefficients for the mean estimation.
 Mstep_beta_admm <- function(resp,
                             ylist,
+                            ## New for flowcut
+                            new_responses = NULL,
+                            idx_cens_list = NULL,
+                            idx_uncens_list = NULL,
+                            ## End of new
                             X,
                             mean_lambda = 0,
                             sigma,
@@ -70,10 +75,22 @@ Mstep_beta_admm <- function(resp,
   Qlist = list()
   sigmainv_list = list()
   for(iclust in 1:numclust){
-    ## print(iclust, numclust, "iclust")
+
+    ## Make augmented ylist with imputed y's appended as latter rows of each
+    ## original y in ylist
+    if(!is.null(new_responses)){
+      ylist_cens = new_responses[[iclust]]
+      ylist_imputed = my_reassemble(ylist, ## ylist_uncens,
+                                    ylist_cens,
+                                    idx_cens_list = idx_cens_list,
+                                    idx_uncens_list = idx_uncens_list)
+    } else {
+      ylist_imputed = ylist
+    }
+
 
     ## Center y and X
-    obj <- weight_ylist(iclust, resp, resp.sum, ylist)
+    obj <- weight_ylist(iclust, resp, resp.sum, ylist_imputed)
     ycentered <- obj$ycentered
     Xcentered <- center_X(iclust, resp.sum, X)
     yXcentered = ycentered %*% Xcentered
@@ -131,6 +148,24 @@ Mstep_beta_admm <- function(resp,
   start.time = Sys.time()
   for(iclust in 1:numclust){
 
+    ## Make augmented ylist with imputed y's appended as latter rows of each
+    ## original y in ylist
+    if(!is.null(new_responses)){
+      ## ylist_imputed = list()
+      ## for(tt in 1:TT){
+      ##   ## ylist_imputed[[tt]] = rbind(ylist[[tt]], new_responses[[tt]][[iclust]])
+      ##   ylist_imputed[[tt]] = reassemble(uncens = ylist[[tt]],
+      ##                                    cens = new_responses[[tt]][[iclust]],
+      ##                                    )
+      ## }
+      ylist_cens = new_responses[[iclust]]
+      ylist_imputed = my_reassemble(ylist, ## ylist_uncens,
+                                    ylist_cens,
+                                    idx_cens_list = idx_cens_list,
+                                    idx_uncens_list = idx_uncens_list)
+    }
+
+
     ## Locally adaptive ADMM.
     res = la_admm_oneclust(K = (if(local_adapt) local_adapt_niter else 1),
                            local_adapt = local_adapt,
@@ -152,7 +187,7 @@ Mstep_beta_admm <- function(resp,
                            lambda = mean_lambda,
                            resp = resp,
                            resp.sum = resp.sum,
-                           ylist = ylist, X = X, tX = tX,
+                           ylist = ylist_imputed, X = X, tX = tX,
                            err_rel = err_rel,
                            err_abs = err_abs,
                            zerothresh = zerothresh,

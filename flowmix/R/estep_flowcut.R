@@ -1,5 +1,5 @@
-##' posterieri membership probabilities).
-##'
+#' Documentation needed.
+#'
 #' @param mn Array TT x dimdat x numclust of means.
 #' @param sigma Array numclust x dimdat x dimdat of covariances.
 #' @param prob Matrix TT x numclust of component weights.
@@ -36,7 +36,7 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
   assertthat::assert_that(length(censor_indicator_right) == length(ylist))
   assertthat::assert_that(length(cens_lim_l_vec) == dimdat)
   assertthat::assert_that(length(cens_lim_u_vec) == dimdat)
-  
+
   calculate_dens <- function(iclust, tt, y,
                              mn, sigma,
                              censor_indicator_left_t,
@@ -45,19 +45,16 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
                              cens_lim_u_vec,
                              denslist_by_clust,
                              first_iter) {
-    #browser() 
-    #print(c(tt,iclust))
-    # if((iter==3)&(tt==20)&(iclust==2)){
-    #   browser()
-    # }
+    ## Setup
     mu   <- mn[tt, , iclust]
     nt   <- nrow(y)
     dens <- numeric(nt)
     Sigma<- sigma[iclust, , ]
-    
+
+
+    ## Main loop
     if (first_iter) {
       dens <- sapply(seq_len(nt), function(ii) {
-        #browser()
         if (dimdat == 1) {
           stats::dnorm(y[ii,], mu, sd = sqrt(sigma[iclust,,])) *
             ((censor_indicator_left_t[ii,]  != 1 | is.na(censor_indicator_left_t[ii,])) &
@@ -107,10 +104,9 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
     dens
   }
   
-  #debug(calculate_dens)
-  
   ncol.prob <- ncol(prob)
   resp <- lapply(seq_len(TT), function(tt) {
+
     ylist_tt               <- ylist[[tt]]
     censor_indicator_left_t  <- censor_indicator_left[[tt]]
     censor_indicator_right_t <- censor_indicator_right[[tt]]
@@ -154,122 +150,37 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
 #'@param cens_lim_l_vec Lower censoring limits.
 #'@param cens_lim_u_vec Upper censoring limits.
 #'@param numclust number of clusters
-#'@param mu_list list of means by cluster. Each cluster has a matrix of dim TT x d.
-#'@param sigma_list list of covariance matrices by cluster. Each cluster has a matrix of dim d x d.
+#'@param mu_list list of means by cluster. Each cluster has a matrix of dim TT x d. (TODO: update to mn)
+#'@param sigma_list list of covariance matrices by cluster. Each cluster has a matrix of dim d x d. (TODO: update to mn)
 #'
 #'@return a nested list containing the responses per time point,observation,cluster in that order of nesting.
 #'
 #' @export
 
-Estep_y_flowcut <- function(y, X, censor_indicator_left, 
-                            censor_indicator_right, cens_lim_l_vec, 
-                            cens_lim_u_vec, numclust, mu_list,sigma_list){
-  #browser()
-  ##Basic Checks
-  stopifnot(is.list(y))
-  stopifnot(is.list(censor_indicator_left))
-  stopifnot(is.list(censor_indicator_right))
-  stopifnot(is.list(mu_list))
-  stopifnot(is.list(sigma_list))
+Estep_y_flowcut <- function(ylist_cens,
+                            ylist_uncens,
+                            X,
+                            ## censor_indicator_left,
+                            ## censor_indicator_right,
+                            left_cens_list,
+                            right_cens_list,
+                            cens_lim_l_vec,
+                            cens_lim_u_vec,
+                            numclust,
+                            mn,
+                            sigma){
+
+  ## Basic Checks
   stopifnot(length(cens_lim_l_vec)==length(cens_lim_u_vec))
   
-  ##Main Body
-  TT = length(y)
-  dimdat = ncol(y[[1]])
-  ntlist = sapply(y,nrow)
-  out_list=list()
-  out_list$new_responses = list()
-  out_list$means = list()
-  out_list$second_moments = list()
-  
-  
-  #debug(cens_cond_normal)  
-  
-  if(dimdat>1){
-    res_list <- lapply(seq_len(TT), function(tt) {
-      n_tt <- ntlist[tt]
-      lapply(seq_len(n_tt), function(ii) {
-        #if((debug_global==9)&&(tt==3)&&(ii==71)) debug(cens_cond_normal) 
-        res <- cens_cond_normal(
-          ii, tt, y, X,
-          censor_indicator_left, censor_indicator_right,
-          cens_lim_l_vec, cens_lim_u_vec,
-          numclust, mu_list, sigma_list
-        )
-        # directly return res; don't rebuild mini-lists
-        list(
-          new_responses  = res$new_response_list,
-          mean           = res$all_conditional_means,
-          second_moment  = res$all_conditional_second_moment_list
-        )
-      })
-    })
-  }else{
-    res_list <- lapply(seq_len(TT), function(tt) {
-      n_tt <- ntlist[tt]
-      lapply(seq_len(n_tt), function(ii) {
-        #if((debug_global==9)&&(tt==3)&&(ii==71)) debug(cens_cond_normal) 
-        res <- cens_cond_normal_1d(
-          ii, tt, y, X,
-          censor_indicator_left, censor_indicator_right,
-          cens_lim_l_vec, cens_lim_u_vec,
-          numclust, mu_list, sigma_list
-        )
-        # directly return res; don't rebuild mini-lists
-        list(
-          new_responses  = res$new_response_list,
-          mean           = res$all_conditional_means,
-          second_moment  = res$all_conditional_second_moment_list
-        )
-      })
-    })
-  }
 
-  
-  censored_y_out <- lapply(res_list, function(tt) lapply(tt, `[[`, "new_responses"))
-  censored_means_out <- lapply(res_list, function(tt) lapply(tt, `[[`, "mean"))
-  censored_second_moment_out <- lapply(res_list, function(tt) lapply(tt, `[[`, "second_moment"))
-  
-  out_list$new_responses <- lapply(1:numclust, function(iclust) {
-    lapply(1:TT, function(tt) {
-      # pick iclust-th component from each ii in this time tt
-      pieces <- lapply(censored_y_out[[tt]], function(ii_elem) ii_elem[[iclust]])
-      sapply(pieces, cbind)
-    })
-  })
-  
-  out_list$means <- lapply(1:numclust, function(iclust) {
-    lapply(1:TT, function(tt) {
-      # pick iclust-th component from each ii in this time tt
-      pieces <- lapply(censored_means_out[[tt]], function(ii_elem) ii_elem[[iclust]])
-      sapply(pieces, cbind)
-    })
-  })
-  
-  out_list$second_moments <- lapply(1:numclust, function(iclust) {
-    lapply(1:TT, function(tt) {
-      pieces <- lapply(censored_second_moment_out[[tt]], function(ii_elem) ii_elem[[iclust]])
-      simplify2array(pieces)
-    })
-  })
-  
-  new_response_list = lapply(out_list$new_responses, function(iclust){
-    lapply(iclust,function(tt){
-      if (is.list(tt)) {
-        t(do.call(rbind, tt))
-      } else {
-        # If it's already a matrix, return as is or handle appropriately
-        if (is.matrix(tt)) {
-          t(tt)
-        } else {
-          # If it's a vector, make it a 1-row matrix
-          matrix(tt, ncol = 1)
-        }
-      }
-    })
-  })
-  
-  return(list(new_responses = new_response_list,
-              means = out_list$means,
-              second_moments = out_list$second_moments))
+  ## make censored conditional normal (1) mean and 2nd moment, and (2)
+  ## imputations of the response.
+  res = cens_cond_normal_new(ylist_cens, X, left_cens_list,
+                             right_cens_list, cens_lim_l_vec, cens_lim_u_vec,
+                             numclust, mn, sigma)
+
+  ## Return the result
+  stopifnot(all(dim(res$new_responses[[1]]) == dim(ylist_cens[[1]])))
+  return(res)
 }

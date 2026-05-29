@@ -7,68 +7,91 @@ library(abind)
 
 # --- Sigma_hat_calculation_fn -------------------------------------------------
 #' Function to assist in calculating Sigma_hat for the censored terms
+#'
 #' @param iclust cluster index
 #' @param resp responsibilities list (length TT) of nt x K matrices
 #' @param ylist list of length K; each [[iclust]] is a list length TT of nt x d matrices (censored y)
 #' @param second_moment_list list (length K) -> [[iclust]][[tt]][[ii]] = d x d 2nd moment (cond.)
 #' @param mn fitted means array (TT x d x K)
 #' @param cens_mat matrix with columns: (tt, ii, d censor flags) where 1 indicates censored
+#'
 #' @return d x d matrix for censored residual contribution divided by sum of resp for cluster
-Sigma_hat_calculation_fn <- function(iclust, resp, ylist, second_moment_list, mn, cens_mat){
-  ylist <- ylist[[iclust]]
+#'
+estep_for_censored_particles <- function(iclust, resp, ylist,
+                                         second_moment_list, mn,
+                                         idx_cens_list,
+                                         left_cens_list,
+                                         right_cens_list
+                                         ){
+
+
+  ## Setup
   TT <- length(ylist)
   ntlist <- sapply(ylist, nrow)
   dimdat <- ncol(ylist[[1]])
   numclust <- ncol(resp[[1]])
-  
-  cens_row = cens_mat[,3:(dimdat+2), drop=FALSE] %>% apply(1, function(myrow){
-    any(myrow==1)
-  }) %>% which()
-  cens_mat_small = cens_mat[cens_row, , drop=FALSE]
-  
-  if(length(cens_row)==0){
-    out = 0
-  }else{
-    temp_fn <- function(irow){
-      #browser()
-      mat_out = matrix(0, dimdat, dimdat)
-      cens_vec <- cens_mat_small[irow, , drop = FALSE]
-      indices_temp <- which(cens_vec[1, 3:(dimdat+2)] == 1)
-      tt = cens_vec[1]
-      ii = cens_vec[2]
-      mean_temp <- ylist[[tt]][ii, indices_temp]
-      mat_out[indices_temp, indices_temp] <-
-        resp[[tt]][ii, iclust] * (second_moment_list[[iclust]][[tt]][[ii]] - mean_temp %*% t(mean_temp))
-      return(mat_out)
-    }
-    
-    #debug(temp_fn)
-    
-    out <- lapply(1:nrow(cens_mat_small), temp_fn)
-  }
-  
+  empty_mat_out = matrix(0, dimdat, dimdat)
+
+  if(is.null(idx_cens_list)){
+    out_mat = 0
+  } else {
+    all_imputed_resid_sq_alltimes <- lapply(1:TT, function(tt){
+
+      if(length(idx_cens_list[[tt]]) == 0) return(empty_mat_out)
+
+      all_imputed_resid_sq_one_time <- lapply(1:length(idx_cens_list[[tt]]), function(ii){
+
+        ## Relevant row in ylist
+        irow = idx_cens_list[[tt]][ii]
+
+        ## Create empty vessel for covariance contribution
+        mat_out = matrix(0, dimdat, dimdat)
+
+        ## Which indices (in the dimdat x dimdat matrix) to fill in
+        indices_temp = which(left_cens_list[[tt]][ii,] | right_cens_list[[tt]][ii,])
+        mean_temp <- ylist[[tt]][irow, indices_temp]
+
+        mat_out
+        mat_out[indices_temp, indices_temp] <-
+          resp[[tt]][ii, iclust] *
+          (second_moment_list[[iclust]][[tt]][[ii]] - mean_temp %*% t(mean_temp))
+        return(mat_out)
+      })
+      return(all_imputed_resid_sq_one_time %>% Reduce("+", .))
+    })
+    out_mat = all_imputed_resid_sq_alltimes %>% Reduce("+", .)
+   }
 
   ## Weighted sum of the list of matrices |out|
   resp.long <- do.call(rbind, resp)
   resp.sum  <- apply(resp.long, 2, sum)[iclust]
-  out_mat <- Reduce(`+`, out)
-  out_mat / resp.sum
+  return(out_mat / resp.sum)
 }
 
 # --- Mstep_sigma --------------------------------------------------------------
 #' M-step for covariance matrix Sigma_k for clusters k = 1..K
 #'
 #' @param resp responsibilities (list length TT of nt x K)
-#' @param ylist list length K; [[iclust]] is list length TT of nt x d (y_new)
+#' @param ylist list length TT of nt x d (y_new)
 #' @param cens_mat censoring matrix with columns (tt, ii, flags...)
-#' @param first_moment_list list of first conditional moments (by cluster/time/obs)
 #' @param second_moment_list list of second conditional moments (by cluster/time/obs)
 #' @param mn fitted means array (TT x d x K)
+#'
 #' @return (K x d x d) array of covariance estimates
-Mstep_sigma_flowcut <- function(resp, ylist, cens_mat, first_moment_list, second_moment_list, mn){
-  TT      <- length(ylist[[1]])
-  ntlist  <- sapply(ylist[[1]], nrow)
-  dimdat  <- ncol(ylist[[1]][[1]])
+Mstep_sigma_flowcut <- function(resp,
+                                ylist,
+                                new_responses,
+                                idx_cens_list,
+                                idx_uncens_list,
+                                left_cens_list,
+                                right_cens_list,
+                                ntlist_orig,
+                                cens_mat = cens_mat,
+                                second_moment_list,
+                                mn){
+  TT      <- length(ylist)
+  ## ntlist  <- sapply(ylist, nrow)
+  dimdat  <- ncol(ylist[[1]])
   numclust<- ncol(resp[[1]])
   
   # Map row indices of mn to long form
@@ -77,18 +100,49 @@ Mstep_sigma_flowcut <- function(resp, ylist, cens_mat, first_moment_list, second
   vars <- vector("list", numclust)
   
   for (iclust in 1:numclust) {
-    ylong <- do.call(rbind, ylist[[iclust]])
-    
+
+    ## Reassemble
+    if(!is.null(new_responses)){
+      ylist_imputed = my_reassemble(ylist,
+                                    new_responses[[iclust]],
+                                    idx_cens_list = idx_cens_list,
+                                    idx_uncens_list = idx_uncens_list)
+    }
+
+    ylong <- do.call(rbind, ylist_imputed)
     resp.thisclust <- lapply(resp, function(myresp) myresp[, iclust, drop = TRUE])
     resp.long <- do.call(c, resp.thisclust)
-    
+
     mnlong <- mn[irows, , iclust]
     if (is.vector(mnlong)) mnlong <- cbind(mnlong)
+
+    ## temporary
+    ylong %>% dim()
+    mnlong %>% dim()
+    resp.long %>% length()
+    ylist_imputed[[1]] %>% dim()
+    resp[[1]] %>% dim()
+    left_cens_list[[1]]
+    right_cens_list[[1]]
+    ## End of temporary
+
+
+    estep_for_censored_particles(iclust, resp,
+                                 ylist_imputed,
+                                 second_moment_list, mn,
+                                 idx_cens_list,
+                                 left_cens_list,
+                                 right_cens_list)
     
     # estepC is assumed to be provided by your C++ code; it returns d x d matrix:
     vars[[iclust]] <-
       estepC(ylong, mnlong, sqrt(resp.long), sum(resp.long)) +
-      Sigma_hat_calculation_fn(iclust, resp, ylist, second_moment_list, mn, cens_mat)
+      estep_for_censored_particles(iclust, resp,
+                                   ylist_imputed,
+                                   second_moment_list, mn,
+                                   idx_cens_list,
+                                   left_cens_list,
+                                   right_cens_list)
   }
   
   sigma_array <- array(NA, dim = c(numclust, dimdat, dimdat))

@@ -64,10 +64,12 @@ check_converge_rel <- function(old, new, tol=1E-6){ return(abs((old-new)/old) < 
 ##' @param countslist Multiplicity for particles in \code{ylist}.
 ##' @param numclust Number of clusters
 ##' @param X Matrix of size (T x p+1)
-##' @param cens_indicator_list_left censor indicator list indicating the left censoring in each dimension at time tt
-##' @param cens_indicator_list_right censor indicator list indicating the right censoring in each dimension at time tt
-##' @param cens_lim_vec_lower left censoring limits in each dimension
-##' @param cens_lim_vec_upper right censoring limits in each dimension
+##' @param cens_left_list A T-lengthed list of d-column, nt-row boolean
+##'   matrices; the (i,j)'th entry of each matrix marks whether the $i$-th row
+##'   of the ylist[[tt]] is left-censored or not.
+##' @param cens_right_list A T-lengthed list of d-column, nt-row boolean
+##'   matrices; the (i,j)'th entry of each matrix marks whether the $i$-th row
+##'   of the ylist[[tt]] is right-censored or not.
 ##' @param mean_lambda lambda for lasso for the mean.
 ##' @param prob_lambda lambda for lasso for probabilities.
 ##' @param tol_em Relative tolerance for EM convergence. Defaults to 1E-4.
@@ -85,8 +87,8 @@ check_converge_rel <- function(old, new, tol=1E-6){ return(abs((old-new)/old) < 
 ##' @param admm_err_abs Absolute error threshold for stopping ADMM.
 ##' @param admm_local_adapt_niter Absolute error threshold for stopping ADMM.
 ##' @param admm_niter Number of ADMM iterations.
-##' @param admm_local_adapt TRUE if locally adaptive ADMM (LA-ADMM) is to be used. If
-##'   so, \code{admm_niter} becomes the inner number of iterations, and
+##' @param admm_local_adapt TRUE if locally adaptive ADMM (LA-ADMM) is to be
+##'   used. If so, \code{admm_niter} becomes the inner number of iterations, and
 ##'   \code{admm_local_adapt_niter} becomes the number of outer iterations.
 ##' @param admm_local_adapt_niter Number of inner iterations in LA ADMM.
 ##' @param CVXR If TRUE, use CVXR instead of ADMM. Slow, and meant to be used
@@ -107,6 +109,8 @@ check_converge_rel <- function(old, new, tol=1E-6){ return(abs((old-new)/old) < 
 ##'
 ##' @export
 flowcut_once <- function(ylist, X,
+                         ## cens_left_list,
+                         ## cens_right_list,
                          cens_indicator_list_left,
                          cens_indicator_list_right,
                          cens_lim_vec_lower,
@@ -132,6 +136,7 @@ flowcut_once <- function(ylist, X,
                          seed = NULL,
                          flatX_thresh = 1e-5
 ){
+
   
   . = NULL ## Fixing check()
   
@@ -151,7 +156,6 @@ flowcut_once <- function(ylist, X,
   assertthat::assert_that(length(ylist) == nrow(X))
   assertthat::assert_that(numclust > 1)
   assertthat::assert_that(niter > 1)
-  
   
   ## assert_that(!(is.data.frame(ylist[[1]])))
   ## assertthat::assert_that(prob_lambda > 0)
@@ -197,15 +201,43 @@ flowcut_once <- function(ylist, X,
   if(is.null(mn)) mn = init_mn(ylist, numclust, TT, dimdat, countslist, seed)
   ntlist = sapply(ylist, nrow)
   N = sum(ntlist)
-  
-  assertthat::assert_that(is.null(cens_lim_vec_lower)==F)
-  assertthat::assert_that(is.null(cens_lim_vec_upper)==F)
-  assertthat::assert_that(length(cens_indicator_list_left)==nrow(X))
-  assertthat::assert_that(length(cens_indicator_list_right)==nrow(X))
-  assertthat::assert_that(length(cens_lim_vec_lower)==ncol(ylist[[1]]))
-  assertthat::assert_that(length(cens_lim_vec_upper)==ncol(ylist[[1]]))
-  
-  
+
+
+  ## For censoring
+  any_censoring = TRUE ## TODO incorporate as a flowcut() function input
+  if(any_censoring){
+
+    ## ## Basic checks
+    ## assertthat::assert_that(is.null(cens_lim_vec_lower)==F)
+    ## assertthat::assert_that(is.null(cens_lim_vec_upper)==F)
+    ## assertthat::assert_that(length(cens_indicator_list_left)==nrow(X))
+    ## assertthat::assert_that(length(cens_indicator_list_right)==nrow(X))
+    ## assertthat::assert_that(length(cens_lim_vec_lower)==ncol(ylist[[1]]))
+    ## assertthat::assert_that(length(cens_lim_vec_upper)==ncol(ylist[[1]]))
+
+    ## convert to the main new objects we'lll use (separated!)
+    convert_obj = my_convert(ylist, cens_indicator_list_left, cens_indicator_list_right)
+    ylist_cens = convert_obj$ylist_cens
+    ylist_uncens = convert_obj$ylist_uncens
+
+    left_cens_list = convert_obj$left_cens_list
+    right_cens_list = convert_obj$right_cens_list
+
+    idx_cens_list = convert_obj$idx_cens_list
+    idx_uncens_list = convert_obj$idx_uncens_list
+
+  } else {
+
+    ylist_cens = NULL
+    ylist_uncens = ylist
+
+    left_cens_list = NULL
+    right_cens_list = NULL
+
+    idx_cens_list = NULL
+    idx_uncens_list = NULL
+  }
+
   ## Initialize some objects
   prob = matrix(1/numclust, nrow = TT, ncol = numclust) ## Initialize to all 1/K.
   denslist_by_clust <- NULL
@@ -230,51 +262,56 @@ flowcut_once <- function(ylist, X,
   ## The least elegant solution I can think of.. used only for blocked cv
   if(!is.null(countslist_overwrite)) countslist = countslist_overwrite
   if(!is.null(countslist)) check_trim(ylist, countslist)
-  
+
+
+  ## Main loop
   start.time = Sys.time()
   for(iter in 2:niter){
-     #print(iter)
-    # if(iter==7){
-    #   debug(Mstep_alpha)
-    #   debug(Mstep_beta_admm_flowcut)
-    # }
-    # if(iter==3){
-    #   debug(eigendecomp_sigma_array)
-    # }
     if(verbose){
-      #print_progress(iter-1, niter-1, "EM iterations.", start.time = start.time)
       print(cat("Iteration", iter - 1, "of", niter - 1, "EM iterations.\n"))
     }
+
+    ## Estep for flowcut
     resp <- Estep_flowcut(mn, sigma, prob, ylist = ylist,
-                  cens_indicator_list_left ,
-                  cens_indicator_list_right,
-                  cens_lim_vec_lower,
-                  cens_lim_vec_upper,
-                  numclust = numclust,
-                  denslist_by_clust = denslist_by_clust,
-                  first_iter = (iter == 2), countslist = countslist)
-    
-    
-    
-    mn_list_temp = list()
-    sigma_list_temp = list()
-    
-    for(iclust in 1:numclust){
-      mn_list_temp[[iclust]] = mn[,,iclust]
-      sigma_list_temp[[iclust]] = sigma[iclust,,]
-    }
-    
-    
-    ##if(debug_global == 9) debug(Estep_y)
-    estepy_saved<- Estep_y_flowcut(ylist, X, cens_indicator_list_left, 
-                           cens_indicator_list_right, cens_lim_vec_lower, 
-                           cens_lim_vec_upper, numclust, mn_list_temp , sigma_list_temp)
-    
-    y_new = estepy_saved$new_responses
-    
+                          cens_indicator_list_left ,
+                          cens_indicator_list_right,
+                          cens_lim_vec_lower,
+                          cens_lim_vec_upper,
+                          numclust = numclust,
+                          denslist_by_clust = denslist_by_clust,
+                          first_iter = (iter == 2), countslist = countslist)
+
+    ## Conditional means of y and yy^T (given censored particles)
+    estepy_saved <- Estep_y_flowcut(ylist_cens, ylist_uncens, X,
+                                    left_cens_list, right_cens_list,
+                                    cens_lim_vec_lower,
+                                    cens_lim_vec_upper,
+                                    numclust, mn,
+                                    sigma)
+
+    ## browser()
+    new_responses = estepy_saved$new_responses %>% purrr::list_transpose()
+    second_moments = estepy_saved$second_moments %>% purrr::list_transpose()
+
+
+    ## iclust=1
+    ## tt=1
+    ## ylist_uncens[[1]] %>% plot(ylim = c(-1,2))
+    ## ylist_cens[[1]] %>% points(col='green')
+    ## iclust=1
+    ## new_responses[[iclust]][[tt]] %>% points(col='blue')
+    ## iclust=2
+    ## new_responses[[iclust]][[tt]] %>% points(col='blue')
+    ## cens_lim_vec_upper
+    ## cens_lim_vec_lower
+
+    ## mn %>% .[1,,]
+    ## ylist_cens[[1]]
+    ## new_responses[[iclust]][[tt]]
+    ## [[iclust]][[2]] %>% plot()
+
     ## M step (three parts)
     ## 1. Alpha
-    ## if(iter==2) browser()
     res.alpha = Mstep_alpha(resp, X,
                             numclust, lambda = prob_lambda,
                             zerothresh = zerothresh)
@@ -284,37 +321,28 @@ flowcut_once <- function(ylist, X,
     rm(res.alpha)
     
     ## 2. Beta
-    
-    ## temporary #did not address this yet
-    if(CVXR){
-      res.beta = Mstep_beta(resp, ylist, X,
-                            mean_lambda = mean_lambda,
-                            first_iter = (iter == 2),
-                            sigma_eig_by_clust = sigma_eig_by_clust,
-                            sigma = sigma, maxdev = maxdev)
-    } else {
-      res.beta = Mstep_beta_admm_flowcut(resp, ylist, y_new, X,
-		                         cens_indicator_list_left,
-		                         cens_indicator_list_right,
-		                         cens_lim_vec_lower,
-		                         cens_lim_vec_upper,
-		                         mean_lambda = mean_lambda,
-		                         first_iter = (iter == 2),
-		                         sigma_eig_by_clust = sigma_eig_by_clust,
-		                         sigma = sigma, maxdev = maxdev, rho = admm_rho,
-		                         betas = betas,
-		                         Zs = Zs,
-		                         Ws = Ws,
-		                         Us = Us,
-		                         err_rel = admm_err_rel,
-		                         err_abs = admm_err_abs,
-		                         niter = admm_niter,
-		                         local_adapt = admm_local_adapt,
-		                         local_adapt_niter = admm_local_adapt_niter)
-      
-      
-    }
-    
+    res.beta = Mstep_beta_admm(resp,
+                               ylist_uncens,
+                               ## New for flowcut
+                               new_responses,
+                               idx_cens_list,
+                               idx_uncens_list,
+                               ## End of new
+                               X,
+                               mean_lambda = mean_lambda,
+                               first_iter = (iter == 2),
+                               sigma_eig_by_clust = sigma_eig_by_clust,
+                               sigma = sigma, maxdev = maxdev, rho = admm_rho,
+                               betas = betas,
+                               Zs = Zs,
+                               Ws = Ws,
+                               Us = Us,
+                               err_rel = admm_err_rel,
+                               err_abs = admm_err_abs,
+                               niter = admm_niter,
+                               local_adapt = admm_local_adapt,
+                               local_adapt_niter = admm_local_adapt_niter)
+
     admm_niters[[iter]] = unlist(res.beta$admm_niters)
     
     ## Harvest means
@@ -334,44 +362,18 @@ flowcut_once <- function(ylist, X,
       if(check_zero_stabilize(zero.betas, zero.alphas, iter)) break
     }
     
-    ## 3. Sigma
-    left_cens_index_temp = list()
-    right_cens_index_temp = list()
-    
-    for(tt in 1:TT){
-      left_cens_index_temp[[tt]] = 
-        cbind(rep(tt,nrow(cens_indicator_list_left[[tt]])), seq(1,nrow(cens_indicator_list_left[[tt]]),1),cens_indicator_list_left[[tt]])
-      right_cens_index_temp[[tt]] = 
-        cbind(rep(tt,nrow(cens_indicator_list_right[[tt]])), seq(1,nrow(cens_indicator_list_right[[tt]]),1),cens_indicator_list_right[[tt]])
-    }
-    
-    temp_mat_left = do.call(rbind, left_cens_index_temp)
-    temp_mat_right = do.call(rbind, right_cens_index_temp)
-    
-    temp_mat_left[is.na(temp_mat_left)] = 0
-    temp_mat_right[is.na(temp_mat_right)] = 0
-    
-    cens_mat = pmax(temp_mat_left,temp_mat_right)
-    
-    if(ncol(cens_mat)>3){
-      cens_ind = 1*(apply(cens_mat[,-c(1,2)],1,sum)!=0)
-    }else{
-      cens_ind = cens_mat[,3]
-    }
-    
-    
-    first_moment_list = estepy_saved$means
-    
-    second_moment_list = estepy_saved$second_moments
-    
-    #resp, y_new, cens_mat, first_moment_list, second_moment_list, mn_array
-    sigma = Mstep_sigma_flowcut(resp, y_new, cens_mat,
-                                  first_moment_list,
-                                  second_moment_list,
-                                  mn)
-    
-    
-    
+    ## 3. Sigma (TODO: revamp this.)
+    sigma = Mstep_sigma_flowcut(resp = resp,
+                                ylist = ylist_uncens,
+                                new_responses = new_responses,
+                                idx_cens_list = idx_cens_list,
+                                idx_uncens_list = idx_uncens_list,
+                                left_cens_list = left_cens_list,
+                                right_cens_list = right_cens_list,
+                                ntlist_orig = ntlist,
+                                second_moment_list = second_moments, ## TODO; change argument name
+                                mn = mn)
+
       ## 3. (Continue) Decompose the sigmas.
       sigma_eig_by_clust <- eigendecomp_sigma_array(sigma)
       denslist_by_clust <- make_denslist_eigen(ylist, mn, TT, dimdat, numclust,
@@ -585,7 +587,6 @@ make_denslist_eigen <- function(ylist, mu,
   lapply(1:numclust, function(iclust){
     mysigma_eig <- sigma_eig_by_clust[[iclust]]
     lapply(1:TT, function(tt){
-      #browser()
       mn = mu[tt,,iclust]
       sgm = mysigma_eig$sigma
       if(dimdat>1){
@@ -615,3 +616,122 @@ make_denslist_eigen <- function(ylist, mu,
 ##' Functions to check convergence.
 ##' @noRd
 check_converge_rel <- function(old, new, tol=1E-6){ return(abs((old-new)/old) < tol )  }
+
+
+
+
+#' Convert the old format to the new.
+#'
+#' @param ylist original ylist
+#' @param cens_indicator_list_left original left censor indicator
+#' @param cens_indicator_list_right original right censor indicator.
+#'
+#' @return Separate list of responses, uncensored and censored. Also, two list
+#'   objects that mark, in which (of the dimdat) dimension the censoring has
+#'   happened, left or right.
+my_convert <- function(ylist,
+                    cens_indicator_list_left,
+                    cens_indicator_list_right){
+
+  ## Basic setup
+  TT <- length(ylist)
+
+  ## Make a cens_left_list and cens_right_list the same size as ylist, but with
+  ## 0/1s.
+  cens_left_list =
+    lapply(cens_indicator_list_left, function(one_mat){
+      one_mat[is.na(one_mat)] <- 0
+      return(one_mat)
+    })
+
+  cens_right_list =
+    lapply(cens_indicator_list_right, function(one_mat){
+      one_mat[is.na(one_mat)] <- 0
+      return(one_mat)
+    })
+
+  ## Do the conversion (from ylist to ylist_uncen and ylist_cen)
+  ylist_cens = ylist_uncens = list()
+  left_cens_list = right_cens_list = list()
+  idx_cens_list = idx_uncens_list = list() ## track rows
+
+  for(tt in 1:TT){
+    one_y_full = ylist[[tt]]
+    nt = nrow(one_y_full)
+    one_left_bool = cens_left_list[[tt]]
+    one_right_bool = cens_right_list[[tt]]
+
+    left_cens_rows = which(rowSums(one_left_bool) > 0)
+    right_cens_rows = which(rowSums(one_right_bool) > 0)
+
+    # Unique censored row numbers (to avoid duplicates if a row is left AND right censored)
+    all_censored_rownums = unique(c(left_cens_rows, right_cens_rows))
+    all_uncensored_rownums = setdiff(1:nt, all_censored_rownums)
+
+    one_y_cens = one_y_full[all_censored_rownums, , drop=FALSE]
+    one_y_uncens = one_y_full[all_uncensored_rownums, , drop=FALSE]
+
+    ylist_cens[[tt]] = one_y_cens
+    ylist_uncens[[tt]] = one_y_uncens
+
+    # Store the index tracking
+    idx_cens_list[[tt]] = all_censored_rownums
+    idx_uncens_list[[tt]] = all_uncensored_rownums
+
+    left_cens_list[[tt]] = one_left_bool[all_censored_rownums, , drop=FALSE]
+    right_cens_list[[tt]] = one_right_bool[all_censored_rownums, , drop=FALSE]
+  }
+
+  return(list(ylist_cens = ylist_cens,
+              ylist_uncens = ylist_uncens,
+              left_cens_list = left_cens_list,
+              right_cens_list = right_cens_list,
+              idx_cens_list = idx_cens_list,
+              idx_uncens_list = idx_uncens_list))
+}
+
+
+#' An opposite operation from the separation in myconvert().
+#'
+my_reassemble <- function(## converted_res
+                          ylist_uncens,
+                          ylist_cens,
+                          idx_cens_list,
+                          idx_uncens_list
+                          ) {
+  ## ylist_cens = converted_res$ylist_cens
+  ## ylist_uncens = converted_res$ylist_uncens
+  ## idx_cens_list = converted_res$idx_cens_list
+  ## idx_uncens_list = converted_res$idx_uncens_list
+
+  TT <- length(ylist_cens)
+  ylist_recovered <- list()
+
+  for(tt in 1:TT) {
+
+    idx_cens <- idx_cens_list[[tt]]
+    idx_uncens <- idx_uncens_list[[tt]]
+
+    # Calculate total rows and columns for this time step
+    total_rows <- length(idx_cens) + length(idx_uncens)
+    total_cols <- ncol(ylist_cens[[tt]])
+
+    # Create an empty matrix of the original size
+    recovered_mat <- matrix(NA, nrow = total_rows, ncol = total_cols)
+
+    # Map the rows back using their saved index positions
+    if(length(idx_cens) > 0) {
+      recovered_mat[idx_cens, ] <- ylist_cens[[tt]]
+    }
+    if(length(idx_uncens) > 0) {
+      recovered_mat[idx_uncens, ] <- ylist_uncens[[tt]]
+    }
+
+    # Preserve original column names if they existed
+    colnames(recovered_mat) <- colnames(ylist_cens[[tt]])
+
+    ylist_recovered[[tt]] <- recovered_mat
+  }
+
+  return(ylist_recovered)
+}

@@ -237,7 +237,13 @@ flowmix_once <- function(ylist, X,
                           sigma_eig_by_clust = sigma_eig_by_clust,
                           sigma = sigma, maxdev = maxdev)
     } else {
-    res.beta = Mstep_beta_admm(resp, ylist, X,
+      res.beta = Mstep_beta_admm(resp, ylist,
+                            ## New because of flowcut
+                                 new_responses = NULL,
+                                 idx_cens_list = NULL,
+                                 idx_uncens_list = NULL,
+                            ## End of new because of flowcut
+                                 X,
                                mean_lambda = mean_lambda,
                                first_iter = (iter == 2),
                                sigma_eig_by_clust = sigma_eig_by_clust,
