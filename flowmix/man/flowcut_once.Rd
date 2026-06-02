@@ -42,14 +42,6 @@ time (T) and with (nt) particles at every time point.}
 
 \item{X}{Matrix of size (T x p+1)}
 
-\item{cens_indicator_list_left}{censor indicator list indicating the left censoring in each dimension at time tt}
-
-\item{cens_indicator_list_right}{censor indicator list indicating the right censoring in each dimension at time tt}
-
-\item{cens_lim_vec_lower}{left censoring limits in each dimension}
-
-\item{cens_lim_vec_upper}{right censoring limits in each dimension}
-
 \item{countslist}{Multiplicity for particles in \code{ylist}.}
 
 \item{numclust}{Number of clusters}
@@ -86,8 +78,8 @@ to zero.}
 
 \item{admm_err_abs}{Absolute error threshold for stopping ADMM.}
 
-\item{admm_local_adapt}{TRUE if locally adaptive ADMM (LA-ADMM) is to be used. If
-so, \code{admm_niter} becomes the inner number of iterations, and
+\item{admm_local_adapt}{TRUE if locally adaptive ADMM (LA-ADMM) is to be
+used. If so, \code{admm_niter} becomes the inner number of iterations, and
 \code{admm_local_adapt_niter} becomes the number of outer iterations.}
 
 \item{admm_local_adapt_niter}{Number of inner iterations in LA ADMM.}
@@ -104,6 +96,14 @@ for the initial mean generation.}
 \item{flatX_thresh}{Threshold for detecting if any covariates are flat (low
 variance). These flat coefficients will have be set to zero and excluded
 from estimation altogether.}
+
+\item{cens_left_list}{A T-lengthed list of d-column, nt-row boolean
+matrices; the (i,j)'th entry of each matrix marks whether the $i$-th row
+of the ylist[[tt]] is left-censored or not.}
+
+\item{cens_right_list}{A T-lengthed list of d-column, nt-row boolean
+matrices; the (i,j)'th entry of each matrix marks whether the $i$-th row
+of the ylist[[tt]] is right-censored or not.}
 }
 \value{
 List containing fitted parameters and means and mixture weights,

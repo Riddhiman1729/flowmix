@@ -9,21 +9,21 @@
 #' @param cens_lim_l_vec lower limits (length dimdat).
 #' @param cens_lim_u_vec upper limits (length dimdat).
 #' @param numclust Number of clusters.
-#' @param denslist_by_clust Optional precomputed densities.
-#' @param first_iter Logical, if TRUE compute densities fresh.
 #' @param eps Small constant to stabilize normalization.
 #' @param countslist Optional list of per-point weights per time.
 #' @return list of TT responsibility matrices (nt x numclust).
 #'
 #' @export
-Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
-                          censor_indicator_left,
-                          censor_indicator_right,
+Estep_flowcut <- function(mn, sigma, prob,
+                          ylist,
+                          ylist_cens,
+                          ylist_uncens,
+                          left_cens_list, 
+                          right_cens_list,
+                          idx_cens_list,
                           cens_lim_l_vec,
                           cens_lim_u_vec,
                           numclust,
-                          denslist_by_clust = NULL,
-                          first_iter = FALSE,
                           eps = 1E-20,
                           countslist = NULL) {
   
@@ -32,96 +32,145 @@ Estep_flowcut <- function(mn, sigma, prob, ylist = NULL,
   dimdat <- dim(mn)[2]
   
   assertthat::assert_that(dim(mn)[1] == length(ylist))
-  assertthat::assert_that(length(censor_indicator_left)  == length(ylist))
-  assertthat::assert_that(length(censor_indicator_right) == length(ylist))
+  assertthat::assert_that(length(left_cens_list)  == length(ylist_cens))
+  assertthat::assert_that(length(right_cens_list) == length(ylist_cens))
   assertthat::assert_that(length(cens_lim_l_vec) == dimdat)
   assertthat::assert_that(length(cens_lim_u_vec) == dimdat)
 
   calculate_dens <- function(iclust, tt, y,
+                             y_uncens,
+                             y_cens,
                              mn, sigma,
-                             censor_indicator_left_t,
-                             censor_indicator_right_t,
+                             left_cens_list_t, 
+                             right_cens_list_t,
+                             integ_lim_l_t,
+                             integ_lim_u_t,
+                             cens_mat,
+                             idx_cens_list_t,
                              cens_lim_l_vec,
-                             cens_lim_u_vec,
-                             denslist_by_clust,
-                             first_iter) {
+                             cens_lim_u_vec) {
     ## Setup
+    #browser()
     mu   <- mn[tt, , iclust]
     nt   <- nrow(y)
     dens <- numeric(nt)
     Sigma<- sigma[iclust, , ]
-
-
-    ## Main loop
-    if (first_iter) {
-      dens <- sapply(seq_len(nt), function(ii) {
-        if (dimdat == 1) {
-          stats::dnorm(y[ii,], mu, sd = sqrt(sigma[iclust,,])) *
-            ((censor_indicator_left_t[ii,]  != 1 | is.na(censor_indicator_left_t[ii,])) &
-               (censor_indicator_right_t[ii,] != 1 | is.na(censor_indicator_right_t[ii,]))) +
-            pnorm(cens_lim_l_vec, mu, sd = sqrt(sigma[iclust,,])) * ((censor_indicator_left_t[ii,] == 1)&(1 - is.na(censor_indicator_left_t[ii,]))) +
-            (1 - pnorm(cens_lim_u_vec, mu, sd = sqrt(sigma[iclust,,]))) * ((censor_indicator_right_t[ii,] == 1)&(1 - is.na(censor_indicator_right_t[ii,])))
-        } else {
-          left_cens_index  <- which((censor_indicator_left_t[ii,]  == 1) & (1 - is.na(censor_indicator_left_t[ii,])))
-          right_cens_index <- which((censor_indicator_right_t[ii,] == 1) & (1 - is.na(censor_indicator_right_t[ii,])))
-          uncensored_index <- which((censor_indicator_left_t[ii,]  != 1 | is.na(censor_indicator_left_t[ii,])) &
-                                      (censor_indicator_right_t[ii,] != 1 | is.na(censor_indicator_right_t[ii,])))
-          lower_limits <- cens_lim_l_vec[left_cens_index]
-          upper_limits <- cens_lim_u_vec[right_cens_index]
-          
-          res_cond          <- cond_mean_var_func(y[ii,], mu, Sigma, uncensored_index)
-          mu_conditional    <- res_cond$mu_conditional
-          mu_observed       <- mu[uncensored_index]
-          Sigma_conditional <- res_cond$Sigma_conditional
-          Sigma_observed    <- Sigma[uncensored_index, uncensored_index, drop = FALSE]
-          y_observed        <- y[ii, uncensored_index, drop = TRUE]
-          
-          if ((length(upper_limits) > 0) || (length(lower_limits) > 0)) {
-            p_lower_limit <- numeric(dimdat)
-            p_upper_limit <- numeric(dimdat)
-            p_lower_limit[left_cens_index]  <- -Inf
-            p_lower_limit[uncensored_index] <- -Inf
-            p_lower_limit[right_cens_index] <- upper_limits
-            p_upper_limit[left_cens_index]  <- lower_limits
-            p_upper_limit[uncensored_index] <- Inf
-            p_upper_limit[right_cens_index] <- Inf
-            
-            dmvnorm_arma_fast(matrix(y_observed, 1, length(y_observed)),
-                              mu_observed, as.matrix(Sigma_observed), FALSE) *
-              my_pmvnorm(p_lower_limit[sort(c(left_cens_index, right_cens_index))],
-                         p_upper_limit[sort(c(left_cens_index, right_cens_index))],
-                         mean = as.vector(mu_conditional),
-                         sigma = Sigma_conditional)[1]
-          } else {
-            dmvnorm_arma_fast(y[ii, , drop = FALSE],
-                              mu, as.matrix(sigma[iclust, , ]), FALSE)
-          }
-        }
-      })
-    } else {
-      dens <- unlist(denslist_by_clust[[iclust]][[tt]])
+    
+    ##Main logic
+    ##for non censored
+    if(nrow(y_uncens)==0){
+      densvec_uncensored = NULL
+    }else{
+      densvec_uncensored <- dmvnorm_arma_fast(y_uncens,mu,Sigma)
     }
-    dens
+    
+    nt = nrow(y_cens)
+    if(nt == 0){
+      densvec_censored =NULL
+    }else{
+      densvec_censored <- sapply(1:nt, function(ii){
+        #browser()
+        #print(ii)
+        uncensored_index <- which(cens_mat[ii,]==0)
+        res_cond          <- cond_mean_var_func(y_cens[ii,], mu, Sigma, uncensored_index)
+        mu_conditional    <- res_cond$mu_conditional
+        mu_observed       <- mu[uncensored_index]
+        Sigma_conditional <- res_cond$Sigma_conditional
+        Sigma_observed    <- Sigma[uncensored_index,uncensored_index]
+        y_observed        <- y_cens[ii, uncensored_index, drop = TRUE]
+        
+        return(dmvnorm_arma_fast(matrix(y_observed, 1, length(y_observed)),
+                                 mu_observed, as.matrix(Sigma_observed), FALSE) *
+                 my_pmvnorm(integ_lim_l_t[ii,],
+                            integ_lim_u_t[ii,],
+                            mean = as.vector(mu_conditional),
+                            sigma = Sigma_conditional)[1])
+      })
+      
+    }
+
+    dens <- numeric(nrow(y))
+    dens[idx_cens_list_t] = densvec_censored
+    
+    dens[-idx_cens_list_t] = densvec_uncensored
+    
+    return(dens)
   }
+  
+  temp_fn_right <- function(M) {
+    if (nrow(M) == 0){
+      prod_u = rep(-Inf, dimdat)
+    }else{
+      
+      u <- matrix(cens_lim_u_vec, nrow = nrow(M),
+                  ncol = length(cens_lim_u_vec), byrow = TRUE)
+      
+      prod_u <- M * u
+      prod_u[is.nan(prod_u)] <- -Inf
+      
+    } 
+    
+    prod_u
+  }
+  
+  temp_fn_left <- function(M) {
+    if (nrow(M) == 0){
+      prod_l = rep(Inf,dimdat)
+    }else{
+      l <- matrix(cens_lim_l_vec, nrow = nrow(M),
+                  ncol = length(cens_lim_l_vec), byrow = TRUE)
+      
+      prod_l <- M * l
+      prod_l[is.nan(prod_l)] <- Inf
+    }
+   
+    prod_l
+  }
+  
+  integration_upper_limits <- lapply(1:length(left_cens_list), 
+                                     function(tt){temp_fn_left(left_cens_list[[tt]])})
+  
+  integration_lower_limits <- lapply(1:length(right_cens_list), 
+                                     function(tt){temp_fn_right(right_cens_list[[tt]])})
+  
+  cens_list <- lapply(1:length(right_cens_list), function(tt){
+    cens_tt = left_cens_list[[tt]] + right_cens_list[[tt]] - left_cens_list[[tt]] * right_cens_list[[tt]]
+  })
   
   ncol.prob <- ncol(prob)
   resp <- lapply(seq_len(TT), function(tt) {
-
-    ylist_tt               <- ylist[[tt]]
-    censor_indicator_left_t  <- censor_indicator_left[[tt]]
-    censor_indicator_right_t <- censor_indicator_right[[tt]]
-    ntt <- ntlist[tt]
+    #if(tt == 13) browser()
+    #print(tt)
+    ylist_tt<- ylist[[tt]]
+    y_cens_t <- ylist_cens[[tt]]
+    y_uncens_t <- ylist_uncens[[tt]]
+    left_cens_list_t  <- left_cens_list[[tt]]
+    right_cens_list_t <- right_cens_list[[tt]]
+    cens_list_t <- cens_list[[tt]]
+    integ_lim_l_t <- integration_lower_limits[[tt]]
+    integ_lim_u_t <- integration_upper_limits[[tt]]
+    idx_cens_list_t = idx_cens_list[[tt]]
+    
+    #ntt <- ntlist[tt]
     
     if (nrow(ylist_tt) == 0) return(ylist_tt)
     
+    #debug(calculate_dens)
     densmat <- sapply(seq_len(numclust),
                       calculate_dens,
-                      tt, ylist_tt, mn, sigma,
-                      censor_indicator_left_t,
-                      censor_indicator_right_t,
+                      tt, ylist_tt,
+                      y_uncens_t,
+                      y_cens_t,
+                      mn, sigma,
+                      left_cens_list_t, 
+                      right_cens_list_t,
+                      integ_lim_l_t,
+                      integ_lim_u_t,
+                      cens_list_t,
+                      idx_cens_list_t,
                       cens_lim_l_vec,
-                      cens_lim_u_vec,
-                      denslist_by_clust, first_iter)
+                      cens_lim_u_vec)
+  
     
     wt.densmat <- matrix(prob[tt,], nrow = ntlist[tt], ncol = ncol.prob, byrow = TRUE) * densmat
     wt.densmat <- wt.densmat + eps

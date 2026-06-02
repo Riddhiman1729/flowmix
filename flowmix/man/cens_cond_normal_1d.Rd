@@ -7,7 +7,7 @@
 cens_cond_normal_1d(
   ii,
   tt,
-  y,
+  ylist,
   X,
   censor_indicator_left,
   censor_indicator_right,
@@ -22,8 +22,6 @@ cens_cond_normal_1d(
 \item{ii}{the particle index for which the censored}
 
 \item{tt}{the time point in question}
-
-\item{y}{the response. Is a list with a matrix at each time point of dimension nt x dimension.}
 
 \item{X}{the matrix of covariates with dimensions tt x d.}
 
@@ -40,6 +38,8 @@ cens_cond_normal_1d(
 \item{mu_list}{list of means by cluster. Each cluster has a matrix of dim TT x d.}
 
 \item{sigma_list}{list of covariance matrices by cluster. Each cluster has a matrix of dim d x d.}
+
+\item{y}{the response. Is a list with a matrix at each time point of dimension nt x dimension.}
 }
 \value{
 a list for the means and variances of the censored/uncensored observation ii at time tt per each cluster.

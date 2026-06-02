@@ -2,7 +2,7 @@
 % Please edit documentation in R/estep_flowcut.R
 \name{Estep_flowcut}
 \alias{Estep_flowcut}
-\title{posterieri membership probabilities).}
+\title{Documentation needed.}
 \usage{
 Estep_flowcut(
   mn,
@@ -51,5 +51,5 @@ Estep_flowcut(
 list of TT responsibility matrices (nt x numclust).
 }
 \description{
-posterieri membership probabilities).
+Documentation needed.
 }

@@ -21,7 +21,7 @@
 ##' @return Fitted beta matrix.
 ##' @noRd
 ##'
-##' @importFrom CVXR Variable sum_squares vec square Minimize solve
+##' @importFrom CVXR Variable sum_squares vec square Minimize psolve
 cvxr_lasso <- function(y, X,  lambda, Xorig=NULL,
                        exclude.from.penalty = NULL,
                        thresh = 1E-8,
@@ -63,7 +63,7 @@ cvxr_lasso <- function(y, X,  lambda, Xorig=NULL,
   prob <- CVXR::Problem(CVXR::Minimize(obj), constraints)
   result = NULL
   result <- tryCatch({
-     CVXR::solve(prob, solver="ECOS",
+     CVXR::psolve(prob, solver="ECOS",
                  FEASTOL = ecos_thresh, RELTOL = ecos_thresh, ABSTOL = ecos_thresh)
   }, error=function(err){
     err$message = paste(err$message,
@@ -82,7 +82,7 @@ cvxr_lasso <- function(y, X,  lambda, Xorig=NULL,
 
   ## Use the SCS solver
   if(scs){
-    result = CVXR::solve(prob, solver="SCS", eps = scs_eps)
+    result = CVXR::psolve(prob, solver="SCS", eps = scs_eps)
     if(any(is.na(result$getValue(betamat)))){ ## A clumsy way to check.
       stop("Lasso solver using both ECOS and SCS has failed.", sep="")
     }

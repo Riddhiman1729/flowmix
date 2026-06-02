@@ -270,16 +270,19 @@ flowcut_once <- function(ylist, X,
     if(verbose){
       print(cat("Iteration", iter - 1, "of", niter - 1, "EM iterations.\n"))
     }
-
+    
     ## Estep for flowcut
-    resp <- Estep_flowcut(mn, sigma, prob, ylist = ylist,
-                          cens_indicator_list_left ,
-                          cens_indicator_list_right,
+    resp <- Estep_flowcut(mn, sigma, prob,
+                          ylist,
+                          ylist_cens,
+                          ylist_uncens,
+                          left_cens_list, 
+                          right_cens_list,
+                          idx_cens_list,
                           cens_lim_vec_lower,
                           cens_lim_vec_upper,
-                          numclust = numclust,
-                          denslist_by_clust = denslist_by_clust,
-                          first_iter = (iter == 2), countslist = countslist)
+                          numclust,
+                          countslist = countslist)
 
     ## Conditional means of y and yy^T (given censored particles)
     estepy_saved <- Estep_y_flowcut(ylist_cens, ylist_uncens, X,
@@ -363,7 +366,9 @@ flowcut_once <- function(ylist, X,
     }
     
     ## 3. Sigma (TODO: revamp this.)
+    ntlist = sapply(ylist, nrow)
     sigma = Mstep_sigma_flowcut(resp = resp,
+                                ntlist = ntlist,
                                 ylist = ylist_uncens,
                                 new_responses = new_responses,
                                 idx_cens_list = idx_cens_list,

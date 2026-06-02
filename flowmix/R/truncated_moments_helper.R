@@ -430,9 +430,11 @@ cens_cond_normal_new <- function(ylist_cens,
                                  cens_lim_u_vec,
                                  numclust,
                                  mn, sigma){
-
-  dimdat = ncol(ylist[[1]])
-  ntlist = sapply(ylist, nrow)
+  ##New 
+  TT <- length(ylist_cens)
+  ##New
+  dimdat = ncol(ylist_cens[[1]])
+  ntlist = sapply(ylist_cens, nrow)
 
   ## Basic Checks
   stopifnot(is.list(ylist_cens))

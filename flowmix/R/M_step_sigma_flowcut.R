@@ -79,6 +79,7 @@ estep_for_censored_particles <- function(iclust, resp, ylist,
 #'
 #' @return (K x d x d) array of covariance estimates
 Mstep_sigma_flowcut <- function(resp,
+                                ntlist,
                                 ylist,
                                 new_responses,
                                 idx_cens_list,
@@ -92,6 +93,7 @@ Mstep_sigma_flowcut <- function(resp,
   TT      <- length(ylist)
   ## ntlist  <- sapply(ylist, nrow)
   dimdat  <- ncol(ylist[[1]])
+  
   numclust<- ncol(resp[[1]])
   
   # Map row indices of mn to long form

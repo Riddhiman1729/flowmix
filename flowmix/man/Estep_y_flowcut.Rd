@@ -5,25 +5,20 @@
 \title{Computing the new responses conditioned on the observed censoring.}
 \usage{
 Estep_y_flowcut(
-  y,
+  ylist_cens,
+  ylist_uncens,
   X,
-  censor_indicator_left,
-  censor_indicator_right,
+  left_cens_list,
+  right_cens_list,
   cens_lim_l_vec,
   cens_lim_u_vec,
   numclust,
-  mu_list,
-  sigma_list
+  mn,
+  sigma
 )
 }
 \arguments{
-\item{y}{response list containing the censored responses. List containing TT elements with each element as a matrix of size ntxdim.}
-
 \item{X}{the matrix of covariates with dimensions tt x d.}
-
-\item{censor_indicator_left}{A list checking whether an observation is left censored. The list if of size TT with each entry being a ntxdim  matrix.}
-
-\item{censor_indicator_right}{A list checking whether an observation is right censored. The list if of size TT with each entry being a ntxdim  matrix.}
 
 \item{cens_lim_l_vec}{Lower censoring limits.}
 
@@ -31,9 +26,15 @@ Estep_y_flowcut(
 
 \item{numclust}{number of clusters}
 
-\item{mu_list}{list of means by cluster. Each cluster has a matrix of dim TT x d.}
+\item{y}{response list containing the censored responses. List containing TT elements with each element as a matrix of size ntxdim.}
 
-\item{sigma_list}{list of covariance matrices by cluster. Each cluster has a matrix of dim d x d.}
+\item{censor_indicator_left}{A list checking whether an observation is left censored. The list if of size TT with each entry being a ntxdim  matrix.}
+
+\item{censor_indicator_right}{A list checking whether an observation is right censored. The list if of size TT with each entry being a ntxdim  matrix.}
+
+\item{mu_list}{list of means by cluster. Each cluster has a matrix of dim TT x d. (TODO: update to mn)}
+
+\item{sigma_list}{list of covariance matrices by cluster. Each cluster has a matrix of dim d x d. (TODO: update to mn)}
 }
 \value{
 a nested list containing the responses per time point,observation,cluster in that order of nesting.

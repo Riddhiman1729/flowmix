@@ -7,8 +7,13 @@
 Mstep_sigma_flowcut(
   resp,
   ylist,
-  cens_mat,
-  first_moment_list,
+  new_responses,
+  idx_cens_list,
+  idx_uncens_list,
+  left_cens_list,
+  right_cens_list,
+  ntlist_orig,
+  cens_mat = cens_mat,
   second_moment_list,
   mn
 )
@@ -16,11 +21,9 @@ Mstep_sigma_flowcut(
 \arguments{
 \item{resp}{responsibilities (list length TT of nt x K)}
 
-\item{ylist}{list length K; [[iclust]] is list length TT of nt x d (y_new)}
+\item{ylist}{list length TT of nt x d (y_new)}
 
 \item{cens_mat}{censoring matrix with columns (tt, ii, flags...)}
-
-\item{first_moment_list}{list of first conditional moments (by cluster/time/obs)}
 
 \item{second_moment_list}{list of second conditional moments (by cluster/time/obs)}
 

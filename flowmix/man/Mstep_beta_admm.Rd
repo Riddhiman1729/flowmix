@@ -9,6 +9,9 @@ up.)}
 Mstep_beta_admm(
   resp,
   ylist,
+  new_responses = NULL,
+  idx_cens_list = NULL,
+  idx_uncens_list = NULL,
   X,
   mean_lambda = 0,
   sigma,
