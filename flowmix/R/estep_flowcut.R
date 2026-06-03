@@ -81,8 +81,8 @@ Estep_flowcut <- function(mn, sigma, prob,
         
         return(dmvnorm_arma_fast(matrix(y_observed, 1, length(y_observed)),
                                  mu_observed, as.matrix(Sigma_observed), FALSE) *
-                 my_pmvnorm(integ_lim_l_t[ii,],
-                            integ_lim_u_t[ii,],
+                 my_pmvnorm(integ_lim_l_t[ii,-uncensored_index],
+                            integ_lim_u_t[ii,-uncensored_index],
                             mean = as.vector(mu_conditional),
                             sigma = Sigma_conditional)[1])
       })
