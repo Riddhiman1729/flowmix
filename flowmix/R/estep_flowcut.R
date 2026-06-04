@@ -50,7 +50,7 @@ Estep_flowcut <- function(mn, sigma, prob,
                              cens_lim_l_vec,
                              cens_lim_u_vec) {
     ## Setup
-    #browser()
+    ##browser()
     mu   <- mn[tt, , iclust]
     nt   <- nrow(y)
     dens <- numeric(nt)
@@ -90,12 +90,17 @@ Estep_flowcut <- function(mn, sigma, prob,
     }
 
     dens <- numeric(nrow(y))
-    dens[idx_cens_list_t] = densvec_censored
     
-    dens[-idx_cens_list_t] = densvec_uncensored
+    if(length(idx_cens_list_t)>0){
+      dens[idx_cens_list_t] = densvec_censored
+      dens[-idx_cens_list_t] = densvec_uncensored
+    }else{
+      dens = densvec_uncensored
+    }
     
     return(dens)
   }
+  
   
   temp_fn_right <- function(M) {
     if (nrow(M) == 0){
