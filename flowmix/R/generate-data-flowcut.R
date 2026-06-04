@@ -526,6 +526,7 @@ gendat_flowcut <- function(TT = 50, fac = 1, nt = 1000,
               ntlist = ntlist,
               pilist = pilist,
               pimat = pimat,
+              mn = mn_array,
               datapoints = datapoints))
 }
 

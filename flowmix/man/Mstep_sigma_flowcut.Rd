@@ -6,6 +6,7 @@
 \usage{
 Mstep_sigma_flowcut(
   resp,
+  ntlist,
   ylist,
   new_responses,
   idx_cens_list,

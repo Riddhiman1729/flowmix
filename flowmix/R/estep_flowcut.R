@@ -50,7 +50,6 @@ Estep_flowcut <- function(mn, sigma, prob,
                              cens_lim_l_vec,
                              cens_lim_u_vec) {
     ## Setup
-    ##browser()
     mu   <- mn[tt, , iclust]
     nt   <- nrow(y)
     dens <- numeric(nt)
@@ -69,8 +68,6 @@ Estep_flowcut <- function(mn, sigma, prob,
       densvec_censored =NULL
     }else{
       densvec_censored <- sapply(1:nt, function(ii){
-        #browser()
-        #print(ii)
         uncensored_index <- which(cens_mat[ii,]==0)
         res_cond          <- cond_mean_var_func(y_cens[ii,], mu, Sigma, uncensored_index)
         mu_conditional    <- res_cond$mu_conditional
@@ -144,9 +141,9 @@ Estep_flowcut <- function(mn, sigma, prob,
   
   ncol.prob <- ncol(prob)
   resp <- lapply(seq_len(TT), function(tt) {
-    #if(tt == 13) browser()
-    #print(tt)
+
     ylist_tt<- ylist[[tt]]
+    if (nrow(ylist_tt) == 0) return(ylist_tt)
     y_cens_t <- ylist_cens[[tt]]
     y_uncens_t <- ylist_uncens[[tt]]
     left_cens_list_t  <- left_cens_list[[tt]]
@@ -155,11 +152,8 @@ Estep_flowcut <- function(mn, sigma, prob,
     integ_lim_l_t <- integration_lower_limits[[tt]]
     integ_lim_u_t <- integration_upper_limits[[tt]]
     idx_cens_list_t = idx_cens_list[[tt]]
-    
-    #ntt <- ntlist[tt]
-    
-    if (nrow(ylist_tt) == 0) return(ylist_tt)
-    
+
+
     #debug(calculate_dens)
     densmat <- sapply(seq_len(numclust),
                       calculate_dens,

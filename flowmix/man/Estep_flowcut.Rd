@@ -8,14 +8,15 @@ Estep_flowcut(
   mn,
   sigma,
   prob,
-  ylist = NULL,
-  censor_indicator_left,
-  censor_indicator_right,
+  ylist,
+  ylist_cens,
+  ylist_uncens,
+  left_cens_list,
+  right_cens_list,
+  idx_cens_list,
   cens_lim_l_vec,
   cens_lim_u_vec,
   numclust,
-  denslist_by_clust = NULL,
-  first_iter = FALSE,
   eps = 1e-20,
   countslist = NULL
 )
@@ -29,23 +30,19 @@ Estep_flowcut(
 
 \item{ylist}{List length TT; each element nt x dimdat data matrix.}
 
-\item{censor_indicator_left}{List length TT; each element nt x dimdat.}
-
-\item{censor_indicator_right}{List length TT; each element nt x dimdat.}
-
 \item{cens_lim_l_vec}{lower limits (length dimdat).}
 
 \item{cens_lim_u_vec}{upper limits (length dimdat).}
 
 \item{numclust}{Number of clusters.}
 
-\item{denslist_by_clust}{Optional precomputed densities.}
-
-\item{first_iter}{Logical, if TRUE compute densities fresh.}
-
 \item{eps}{Small constant to stabilize normalization.}
 
 \item{countslist}{Optional list of per-point weights per time.}
+
+\item{censor_indicator_left}{List length TT; each element nt x dimdat.}
+
+\item{censor_indicator_right}{List length TT; each element nt x dimdat.}
 }
 \value{
 list of TT responsibility matrices (nt x numclust).

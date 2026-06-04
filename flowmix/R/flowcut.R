@@ -711,36 +711,30 @@ my_reassemble <- function(## converted_res
                           idx_cens_list,
                           idx_uncens_list
                           ) {
-  ## ylist_cens = converted_res$ylist_cens
-  ## ylist_uncens = converted_res$ylist_uncens
-  ## idx_cens_list = converted_res$idx_cens_list
-  ## idx_uncens_list = converted_res$idx_uncens_list
 
+  ## Pre-allocate list
   TT <- length(ylist_cens)
-  ylist_recovered <- list()
+  ylist_recovered <- vector("list", TT)
+
+  # Setup
+  c_names <- colnames(ylist_cens[[1]])
+  total_cols <- ncol(ylist_cens[[1]])
 
   for(tt in 1:TT) {
 
+    ## Calculate total rows and columns for this time step
     idx_cens <- idx_cens_list[[tt]]
     idx_uncens <- idx_uncens_list[[tt]]
 
-    # Calculate total rows and columns for this time step
-    total_rows <- length(idx_cens) + length(idx_uncens)
-    total_cols <- ncol(ylist_cens[[tt]])
+    ## Create an empty matrix of the original size
+    recovered_mat <- matrix(NA_real_,
+                            nrow = length(idx_cens) + length(idx_uncens),
+                            ncol = total_cols)
+    colnames(recovered_mat) <- c_names
 
-    # Create an empty matrix of the original size
-    recovered_mat <- matrix(NA, nrow = total_rows, ncol = total_cols)
-
-    # Map the rows back using their saved index positions
-    if(length(idx_cens) > 0) {
-      recovered_mat[idx_cens, ] <- ylist_cens[[tt]]
-    }
-    if(length(idx_uncens) > 0) {
-      recovered_mat[idx_uncens, ] <- ylist_uncens[[tt]]
-    }
-
-    # Preserve original column names if they existed
-    colnames(recovered_mat) <- colnames(ylist_cens[[tt]])
+    ## Map the rows back using their saved index positions
+    if(length(idx_cens) > 0)    recovered_mat[idx_cens, ]   <- ylist_cens[[tt]]
+    if(length(idx_uncens) > 0)  recovered_mat[idx_uncens, ] <- ylist_uncens[[tt]]
 
     ylist_recovered[[tt]] <- recovered_mat
   }
