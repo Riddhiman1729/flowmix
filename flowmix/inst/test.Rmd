@@ -21,6 +21,36 @@ devtools::build("~/repos/flowmix-fork/flowmix", vignettes = FALSE)
 devtools::install("~/repos/flowmix-fork/flowmix", vignettes = FALSE)
 ```
 
+Here are a couple of plotting helper we'll need.
+
+```{r}
+plot_2d <- function(oneres, ylist, biomass_list = NULL, idim, dates = NULL){
+
+  datobj_1d$ylist = ylist %>% lapply(function(a) a[,idim, drop=FALSE])
+  means = oneres$mn %>% .[,idim,] %>% as_tibble() %>% setNames(1:2) %>%
+    add_column(time = 1:TT) %>%
+    pivot_longer(-time, names_to = "cluster", values_to = "mean")
+
+  flowtrend::plot_1d(ylist = datobj_1d$ylist,
+                     countslist = datobj_1d$biomass_list,  bin = FALSE,
+                     x = dates)  +
+    geom_line(aes(x=time, y = mean, group = cluster), data = means,
+              col = 'yellow', linewidth = 2)
+}
+
+#' @param y Position of the text near the top.
+add_title<- function(myplot, mytitle, y = .97){
+  myplot %>%
+    cowplot::ggdraw() +
+    theme(plot.background = element_rect(color = "grey", size = 1)) +
+    cowplot::draw_label(mytitle,
+                        x = 0.5, # Center the text horizontally
+                        y = y, # Position the text near the top
+                        size = 14)+
+    theme(plot.margin = unit(c(.8, 0.5, 0.5, 0.5), "cm"))
+}
+```
+
 Generate some data. and measure flowcut run times.
 
 
@@ -381,5 +411,32 @@ data.frame(flowmix = flowmix_mn_err, flowcut = flowcut_mn_err, flowmix_uncens = 
   xlab("Proportion of censored points") +
   ggtitle("L2 error in mean estimates (in 2nd dimension)")  +
   ylab("L2 error")  +
-  theme_minimal()
+  theme_minimal() 
+```
+
+
+Here are some 3d plots
+
+```{r}
+lapply(c(1,5,8,9, 10, 12), function(icensor){
+  censoring_limit = censoring_limits[icensor] %>% round(2)
+  oneres = flowcut_models[[icensor]]
+  oneres_flowmix = flowmix_models[[icensor]]
+  oneres_flowmix_uncens = flowmix_uncens_models[[icensor]]
+  datobj = datobjs[[icensor]] 
+  
+  tt = 50
+  y = datobj$ylist[[tt]]  %>% as_tibble()
+  cowplot::plot_grid(
+               plotlist =
+                 list(
+                     flowtrend::plot_2d(datobj$ylist, tt = 1, bin = FALSE, obj = oneres) +ggtitle("flowcut") + ylim(c(-1.5, 3)),
+                     flowtrend::plot_2d(datobj$ylist, tt = 1, bin = FALSE, obj = oneres_flowmix) +ggtitle("flowmix")+ ylim(c(-1.5, 3)),
+                     flowtrend::plot_2d(datobj$ylist, tt = 1, bin = FALSE, obj = oneres_flowmix_uncens) + ggtitle("flowmix_uncens")+ ylim(c(-1.5, 3))), ncol = 3) %>%
+    add_title(paste0("censor_limit=", censoring_limit,
+                     "   t = ", tt), 1.05)
+}) %>%
+  cowplot::plot_grid(
+               plotlist = ., ncol = 2)
+
 ```
