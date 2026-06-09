@@ -13,3 +13,7 @@ paper-data/*
 paper-figures
 paper-code/aoas-revision
 misc-code
+
+*tar.gz
+flowmix/src/*.o
+flowmix/src/*.so
