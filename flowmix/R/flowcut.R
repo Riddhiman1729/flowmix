@@ -207,13 +207,13 @@ flowcut_once <- function(ylist, X,
   any_censoring = TRUE ## TODO incorporate as a flowcut() function input
   if(any_censoring){
 
-    ## ## Basic checks
-    ## assertthat::assert_that(is.null(cens_lim_vec_lower)==F)
-    ## assertthat::assert_that(is.null(cens_lim_vec_upper)==F)
-    ## assertthat::assert_that(length(cens_indicator_list_left)==nrow(X))
-    ## assertthat::assert_that(length(cens_indicator_list_right)==nrow(X))
-    ## assertthat::assert_that(length(cens_lim_vec_lower)==ncol(ylist[[1]]))
-    ## assertthat::assert_that(length(cens_lim_vec_upper)==ncol(ylist[[1]]))
+    ## Basic checks
+    assertthat::assert_that(is.null(cens_lim_vec_lower)==F)
+    assertthat::assert_that(is.null(cens_lim_vec_upper)==F)
+    assertthat::assert_that(length(cens_indicator_list_left)==nrow(X))
+    assertthat::assert_that(length(cens_indicator_list_right)==nrow(X))
+    assertthat::assert_that(length(cens_lim_vec_lower)==ncol(ylist[[1]]))
+    assertthat::assert_that(length(cens_lim_vec_upper)==ncol(ylist[[1]]))
 
     ## convert to the main new objects we'lll use (separated!)
     convert_obj = my_convert(ylist, cens_indicator_list_left, cens_indicator_list_right)
@@ -268,7 +268,9 @@ flowcut_once <- function(ylist, X,
   start.time = Sys.time()
   for(iter in 2:niter){
     if(verbose){
-      print(cat("Iteration", iter - 1, "of", niter - 1, "EM iterations.\n"))
+      cat("Iteration", iter - 1, "of", niter - 1, "EM iterations.\n")
+      time_elapsed <- round(as.numeric(difftime(Sys.time(), start.time, units = "secs")), 1)
+      cat(paste0(time_elapsed, " seconds have passed"), fill=TRUE)
     }
     
     ## Estep for flowcut
@@ -284,8 +286,6 @@ flowcut_once <- function(ylist, X,
                           numclust,
                           countslist = countslist)
     
-    
-
     ######################################
     
     
@@ -304,21 +304,6 @@ flowcut_once <- function(ylist, X,
     second_moments = estepy_saved$second_moments %>% purrr::list_transpose()
 
 
-    ## iclust=1
-    ## tt=1
-    ## ylist_uncens[[1]] %>% plot(ylim = c(-1,2))
-    ## ylist_cens[[1]] %>% points(col='green')
-    ## iclust=1
-    ## new_responses[[iclust]][[tt]] %>% points(col='blue')
-    ## iclust=2
-    ## new_responses[[iclust]][[tt]] %>% points(col='blue')
-    ## cens_lim_vec_upper
-    ## cens_lim_vec_lower
-
-    ## mn %>% .[1,,]
-    ## ylist_cens[[1]]
-    ## new_responses[[iclust]][[tt]]
-    ## [[iclust]][[2]] %>% plot()
 
     ## M step (three parts)
     ## 1. Alpha
