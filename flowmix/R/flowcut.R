@@ -706,7 +706,6 @@ my_reassemble <- function(## converted_res
   total_cols <- ncol(ylist_cens[[1]])
 
   for(tt in 1:TT) {
-
     ## Calculate total rows and columns for this time step
     idx_cens <- idx_cens_list[[tt]]
     idx_uncens <- idx_uncens_list[[tt]]
