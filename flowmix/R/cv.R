@@ -981,51 +981,157 @@ cv.flowcut <- function(
       ifold = 0
     }
     
-    if(!refit){
-      ## Add noise to X, if applicable
-      #debug(one_job_flowcut)
-      one_job_flowcut(ialpha = ialpha,
-                      ibeta = ibeta,
-                      ifold = ifold,
-                      irep = irep,
-                      folds = folds,
-                      destin = destin,
-                      mean_lambdas = mean_lambdas,
-                      prob_lambdas = prob_lambdas,
-                      ## Arguments for flowmix()
-                      ylist = ylist, countslist = countslist, X = X,
-                      cens_ind_left = cens_ind_left,
-                      cens_ind_right = cens_ind_right,
-                      cens_vec_1 = cens_vec_1,
-                      cens_vec_2 = cens_vec_2,
-                      ## Additional arguments for covarem(), for ellipsis.
-                      numclust = numclust,
-                      maxdev = maxdev,
-                      verbose = FALSE,
-                      seedtab = seedtab,
-                      flatX_thresh = flatX_thresh)
+    if (!refit) {
+      
+      cat("Not refit: ialpha =", ialpha,
+          "ibeta =", ibeta,
+          "ifold =", ifold,
+          "irep =", irep, "\n")
+      
+      saved_failure <- FALSE
+      
+      withCallingHandlers(
+        tryCatch({
+          
+          one_job_flowcut(
+            ialpha = ialpha,
+            ibeta = ibeta,
+            ifold = ifold,
+            irep = irep,
+            folds = folds,
+            destin = destin,
+            mean_lambdas = mean_lambdas,
+            prob_lambdas = prob_lambdas,
+            
+            ## Arguments for flowmix()
+            ylist = ylist,
+            countslist = countslist,
+            X = X,
+            cens_ind_left = cens_ind_left,
+            cens_ind_right = cens_ind_right,
+            cens_vec_1 = cens_vec_1,
+            cens_vec_2 = cens_vec_2,
+            
+            ## Additional arguments
+            numclust = numclust,
+            maxdev = maxdev,
+            verbose = FALSE,
+            seedtab = seedtab,
+            flatX_thresh = flatX_thresh
+          )
+          
+        }, error = function(err) {
+          
+          if (!saved_failure) {
+            save_failed_flowcut_job(
+              err = err,
+              ialpha = ialpha,
+              ibeta = ibeta,
+              ifold = ifold,
+              irep = irep,
+              folds = folds,
+              ylist = ylist,
+              countslist = countslist,
+              X = X,
+              cens_ind_left = cens_ind_left,
+              cens_ind_right = cens_ind_right,
+              cens_vec_1 = cens_vec_1,
+              cens_vec_2 = cens_vec_2,
+              mean_lambdas = mean_lambdas,
+              prob_lambdas = prob_lambdas,
+              maxdev = maxdev,
+              numclust = numclust,
+              nfold = nfold,
+              nrep = nrep,
+              blocksize = blocksize,
+              destin = destin,
+              seedtab = seedtab,
+              flatX_thresh = flatX_thresh,
+              type = "error"
+            )
+            
+            saved_failure <<- TRUE
+          }
+          
+          return(NULL)
+        }),
+        
+        warning = function(w) {
+          
+          ## This catches failures if one_job_flowcut() catches the error internally
+          ## and only emits a warning.
+          if (grepl("No file will be saved|chol|decomposition failed|unused argument|Error",
+                    conditionMessage(w))) {
+            
+            if (!saved_failure) {
+              save_failed_flowcut_job(
+                err = w,
+                ialpha = ialpha,
+                ibeta = ibeta,
+                ifold = ifold,
+                irep = irep,
+                folds = folds,
+                ylist = ylist,
+                countslist = countslist,
+                X = X,
+                cens_ind_left = cens_ind_left,
+                cens_ind_right = cens_ind_right,
+                cens_vec_1 = cens_vec_1,
+                cens_vec_2 = cens_vec_2,
+                mean_lambdas = mean_lambdas,
+                prob_lambdas = prob_lambdas,
+                maxdev = maxdev,
+                numclust = numclust,
+                nfold = nfold,
+                nrep = nrep,
+                blocksize = blocksize,
+                destin = destin,
+                seedtab = seedtab,
+                flatX_thresh = flatX_thresh,
+                type = "warning"
+              )
+              
+              saved_failure <<- TRUE
+            }
+            
+            invokeRestart("muffleWarning")
+          }
+        }
+      )
+      
     } else {
-      #debug(one_job_refit_flowcut)
-      one_job_refit_flowcut(ialpha = ialpha,
-                            ibeta = ibeta,
-                            destin = destin,
-                            mean_lambdas = mean_lambdas,
-                            prob_lambdas = prob_lambdas,
-                            ## Arguments to flowmix()
-                            ylist = ylist, countslist = countslist, X = X,
-                            cens_ind_left = cens_ind_left,
-                            cens_ind_right = cens_ind_right,
-                            cens_vec_1 = cens_vec_1,
-                            cens_vec_2 = cens_vec_2,
-                            ## Additional arguments for covarem(), for ellipsis.
-                            numclust = numclust,
-                            maxdev = maxdev,
-                            nrep = nrep,
-                            verbose = FALSE,
-                            seedtab = seedtab,
-                            flatX_thresh = flatX_thresh
+      
+      cat("Refit: ialpha =", ialpha,
+          "ibeta =", ibeta,
+          "ifold =", ifold,
+          "irep =", irep, "\n")
+      
+      one_job_refit_flowcut(
+        ialpha = ialpha,
+        ibeta = ibeta,
+        destin = destin,
+        mean_lambdas = mean_lambdas,
+        prob_lambdas = prob_lambdas,
+        
+        ## Arguments to flowmix()
+        ylist = ylist,
+        countslist = countslist,
+        X = X,
+        cens_ind_left = cens_ind_left,
+        cens_ind_right = cens_ind_right,
+        cens_vec_1 = cens_vec_1,
+        cens_vec_2 = cens_vec_2,
+        
+        ## Additional arguments
+        numclust = numclust,
+        maxdev = maxdev,
+        nrep = nrep,
+        verbose = FALSE,
+        seedtab = seedtab,
+        flatX_thresh = flatX_thresh
       )
     }
+    
     return(NULL)
   }
   
@@ -1037,3 +1143,100 @@ cv.flowcut <- function(
   
   parallel::mclapply(1:nrow(iimat), test_fn , mc.cores = mc.cores, mc.preschedule = FALSE)
 }
+
+##New Code Here################
+
+save_failed_flowcut_job <- function(err, ialpha, ibeta, ifold, irep,
+                                    folds, ylist, countslist, X,
+                                    cens_ind_left, cens_ind_right,
+                                    cens_vec_1, cens_vec_2,
+                                    mean_lambdas, prob_lambdas,
+                                    maxdev, numclust, nfold, nrep,
+                                    blocksize, destin,
+                                    seedtab = NULL,
+                                    flatX_thresh = 1e-5,
+                                    type = "error") {
+  TT <- length(ylist)
+  
+  test.inds <- sort(unlist(folds[ifold], use.names = FALSE))
+  train.inds <- sort(unique(c(1, unlist(folds[-ifold], use.names = FALSE), TT)))
+  
+  fail_dir <- file.path(destin, "failed_jobs_rds")
+  dir.create(fail_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  fail_file <- file.path(
+    fail_dir,
+    sprintf("FAILED-%02d-%02d-%02d-%02d-%s-pid%s.rds",
+            ialpha, ibeta, ifold, irep, type, Sys.getpid())
+  )
+  
+  obj <- list(
+    error = list(
+      type = type,
+      message = conditionMessage(err),
+      call = conditionCall(err)
+    ),
+    
+    job = list(
+      ialpha = ialpha,
+      ibeta = ibeta,
+      ifold = ifold,
+      irep = irep,
+      mean_lambda = mean_lambdas[ibeta],
+      prob_lambda = prob_lambdas[ialpha],
+      destin = destin
+    ),
+    
+    cv_setup = list(
+      nfold = nfold,
+      nrep = nrep,
+      blocksize = blocksize,
+      folds = folds,
+      train.inds = train.inds,
+      test.inds = test.inds
+    ),
+    
+    parameters = list(
+      maxdev = maxdev,
+      numclust = numclust,
+      flatX_thresh = flatX_thresh,
+      mean_lambdas = mean_lambdas,
+      prob_lambdas = prob_lambdas
+    ),
+    
+    fold_data = list(
+      train = list(
+        ylist = ylist[train.inds],
+        countslist = if (is.null(countslist)) NULL else countslist[train.inds],
+        X = X[train.inds, , drop = FALSE],
+        cens_ind_left = cens_ind_left[train.inds],
+        cens_ind_right = cens_ind_right[train.inds]
+      ),
+      
+      test = list(
+        ylist = ylist[test.inds],
+        countslist = if (is.null(countslist)) NULL else countslist[test.inds],
+        X = X[test.inds, , drop = FALSE],
+        cens_ind_left = cens_ind_left[test.inds],
+        cens_ind_right = cens_ind_right[test.inds]
+      ),
+      
+      censoring_limits = list(
+        cens_vec_1 = cens_vec_1,
+        cens_vec_2 = cens_vec_2
+      )
+    ),
+    
+    seedtab = seedtab,
+    session = sessionInfo()
+  )
+  
+  saveRDS(obj, fail_file)
+  cat("Saved failure RDS:", fail_file, "\n")
+  
+  invisible(fail_file)
+}
+
+
+
+
