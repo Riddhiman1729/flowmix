@@ -973,6 +973,9 @@ cv.flowcut <- function(
     }
   }
   
+  ##Create the directory for saving job parameters
+  saved_job_parameters_rds <- file.path(destin, "saved_job_parameters_rds")
+  dir.create(saved_job_parameters_rds, recursive = TRUE, showWarnings = FALSE)
   ## Run the EM algorithm many times, for each value of (ialpha, ibeta, ifold, irep)
   start.time = Sys.time()
   
@@ -998,116 +1001,57 @@ cv.flowcut <- function(
           "ifold =", ifold,
           "irep =", irep, "\n")
       
-      saved_failure <- FALSE
-      
-      withCallingHandlers(
-        tryCatch({
-          
-          one_job_flowcut(
-            ialpha = ialpha,
-            ibeta = ibeta,
-            ifold = ifold,
-            irep = irep,
-            folds = folds,
-            destin = destin,
-            mean_lambdas = mean_lambdas,
-            prob_lambdas = prob_lambdas,
-            
-            ## Arguments for flowmix()
-            ylist = ylist,
-            countslist = countslist,
-            X = X,
-            cens_ind_left = cens_ind_left,
-            cens_ind_right = cens_ind_right,
-            cens_vec_1 = cens_vec_1,
-            cens_vec_2 = cens_vec_2,
-            
-            ## Additional arguments
-            numclust = numclust,
-            maxdev = maxdev,
-            verbose = FALSE,
-            seedtab = seedtab,
-            flatX_thresh = flatX_thresh
-          )
-          
-        }, error = function(err) {
-          
-          if (!saved_failure) {
-            save_failed_flowcut_job(
-              err = err,
-              ialpha = ialpha,
-              ibeta = ibeta,
-              ifold = ifold,
-              irep = irep,
-              folds = folds,
-              ylist = ylist,
-              countslist = countslist,
-              X = X,
-              cens_ind_left = cens_ind_left,
-              cens_ind_right = cens_ind_right,
-              cens_vec_1 = cens_vec_1,
-              cens_vec_2 = cens_vec_2,
-              mean_lambdas = mean_lambdas,
-              prob_lambdas = prob_lambdas,
-              maxdev = maxdev,
-              numclust = numclust,
-              nfold = nfold,
-              nrep = nrep,
-              blocksize = blocksize,
-              destin = destin,
-              seedtab = seedtab,
-              flatX_thresh = flatX_thresh,
-              type = "error"
-            )
-            
-            saved_failure <<- TRUE
-          }
-          
-          return(NULL)
-        }),
-        
-        warning = function(w) {
-          
-          ## This catches failures if one_job_flowcut() catches the error internally
-          ## and only emits a warning.
-          if (grepl("No file will be saved|chol|decomposition failed|unused argument|Error",
-                    conditionMessage(w))) {
-            
-            if (!saved_failure) {
-              save_failed_flowcut_job(
-                err = w,
-                ialpha = ialpha,
-                ibeta = ibeta,
-                ifold = ifold,
-                irep = irep,
-                folds = folds,
-                ylist = ylist,
-                countslist = countslist,
-                X = X,
-                cens_ind_left = cens_ind_left,
-                cens_ind_right = cens_ind_right,
-                cens_vec_1 = cens_vec_1,
-                cens_vec_2 = cens_vec_2,
-                mean_lambdas = mean_lambdas,
-                prob_lambdas = prob_lambdas,
-                maxdev = maxdev,
-                numclust = numclust,
-                nfold = nfold,
-                nrep = nrep,
-                blocksize = blocksize,
-                destin = destin,
-                seedtab = seedtab,
-                flatX_thresh = flatX_thresh,
-                type = "warning"
-              )
-              
-              saved_failure <<- TRUE
-            }
-            
-            invokeRestart("muffleWarning")
-          }
-        }
+      save_cv_flowcut_jobs(
+        ialpha = ialpha,
+        ibeta = ibeta,
+        ifold = ifold,
+        irep = irep,
+        folds = folds,
+        ylist = ylist,
+        countslist = countslist,
+        X = X,
+        cens_ind_left = cens_ind_left,
+        cens_ind_right = cens_ind_right,
+        cens_vec_1 = cens_vec_1,
+        cens_vec_2 = cens_vec_2,
+        mean_lambdas = mean_lambdas,
+        prob_lambdas = prob_lambdas,
+        maxdev = maxdev,
+        numclust = numclust,
+        nfold = nfold,
+        nrep = nrep,
+        blocksize = blocksize,
+        saved_job_parameters_rds = saved_job_parameters_rds,
+        seedtab = seedtab,
+        flatX_thresh = flatX_thresh
       )
+      
+        one_job_flowcut(
+          ialpha = ialpha,
+          ibeta = ibeta,
+          ifold = ifold,
+          irep = irep,
+          folds = folds,
+          destin = destin,
+          mean_lambdas = mean_lambdas,
+          prob_lambdas = prob_lambdas,
+          
+          ## Arguments for flowmix()
+          ylist = ylist,
+          countslist = countslist,
+          X = X,
+          cens_ind_left = cens_ind_left,
+          cens_ind_right = cens_ind_right,
+          cens_vec_1 = cens_vec_1,
+          cens_vec_2 = cens_vec_2,
+          
+          ## Additional arguments
+          numclust = numclust,
+          maxdev = maxdev,
+          verbose = FALSE,
+          seedtab = seedtab,
+          flatX_thresh = flatX_thresh
+        )
       
     } else {
       
@@ -1156,45 +1100,39 @@ cv.flowcut <- function(
 
 ##New Code Here################
 
-save_failed_flowcut_job <- function(err, ialpha, ibeta, ifold, irep,
-                                    folds, ylist, countslist, X,
-                                    cens_ind_left, cens_ind_right,
-                                    cens_vec_1, cens_vec_2,
-                                    mean_lambdas, prob_lambdas,
-                                    maxdev, numclust, nfold, nrep,
-                                    blocksize, destin,
-                                    seedtab = NULL,
-                                    flatX_thresh = 1e-5,
-                                    type = "error") {
+save_cv_flowcut_jobs <- function(ialpha, ibeta, ifold, irep,
+                                 folds, ylist, countslist, X,
+                                 cens_ind_left, cens_ind_right,
+                                 cens_vec_1, cens_vec_2,
+                                 mean_lambdas, prob_lambdas,
+                                 maxdev, numclust, nfold, nrep,
+                                 blocksize, saved_job_parameters_rds,
+                                 seedtab = NULL,
+                                 flatX_thresh = 1e-5) {
+  
   TT <- length(ylist)
   
   test.inds <- sort(unlist(folds[ifold], use.names = FALSE))
-  train.inds <- sort(unique(c(unlist(folds[-ifold], use.names = FALSE), TT)))
+  train.inds <- sort(setdiff(seq_len(TT), test.inds))
   
-  fail_dir <- file.path(destin, "failed_jobs_rds")
-  dir.create(fail_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(saved_job_parameters_rds, recursive = TRUE, showWarnings = FALSE)
   
-  fail_file <- file.path(
-    fail_dir,
-    sprintf("FAILED-%02d-%02d-%02d-%02d-%s-pid%s.rds",
-            ialpha, ibeta, ifold, irep, type, Sys.getpid())
+  save_file <- file.path(
+    saved_job_parameters_rds,
+    sprintf(
+      "JOBPARAM-%02d-%02d-%02d-%02d.rds",
+      ialpha, ibeta, ifold, irep
+    )
   )
   
   obj <- list(
-    error = list(
-      type = type,
-      message = conditionMessage(err),
-      call = conditionCall(err)
-    ),
-    
     job = list(
       ialpha = ialpha,
       ibeta = ibeta,
       ifold = ifold,
       irep = irep,
       mean_lambda = mean_lambdas[ibeta],
-      prob_lambda = prob_lambdas[ialpha],
-      destin = destin
+      prob_lambda = prob_lambdas[ialpha]
     ),
     
     cv_setup = list(
@@ -1241,10 +1179,11 @@ save_failed_flowcut_job <- function(err, ialpha, ibeta, ifold, irep,
     session = sessionInfo()
   )
   
-  saveRDS(obj, fail_file)
-  cat("Saved failure RDS:", fail_file, "\n")
+  saveRDS(obj, save_file)
   
-  invisible(fail_file)
+  cat("Saved job-parameter RDS:", save_file, "\n")
+  
+  invisible(save_file)
 }
 
 
