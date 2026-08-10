@@ -470,14 +470,24 @@ one_job_flowcut <- function(ialpha, ibeta, ifold, irep, folds, destin,
     return(NULL)
     
   }, error = function(err) {
-    err$message = paste(err$message,
-                        "\n(No file will be saved for lambdas (",
-                        signif(prob_lambdas[ialpha],3), ", ", signif(mean_lambdas[ibeta],3),
-                        ") whose indices are: ",
-                        ialpha, "-", ibeta, "-", ifold, "-", irep,
-                        " .)",sep="")
-    cat(err$message, fill=TRUE)
-    warning(err)})
+    
+    msg <- paste0(
+      conditionMessage(err),
+      "\n(No file will be saved for lambdas (",
+      signif(prob_lambdas[ialpha], 3), ", ",
+      signif(mean_lambdas[ibeta], 3),
+      ") whose indices are: ",
+      ialpha, "-", ibeta, "-", ifold, "-", irep,
+      " .)"
+    )
+    
+    cat(msg, fill = TRUE)
+    
+    warning(msg, call. = FALSE)
+    
+    return(NULL)
+  })
+  
 }
 
 
@@ -1159,7 +1169,7 @@ save_failed_flowcut_job <- function(err, ialpha, ibeta, ifold, irep,
   TT <- length(ylist)
   
   test.inds <- sort(unlist(folds[ifold], use.names = FALSE))
-  train.inds <- sort(unique(c(1, unlist(folds[-ifold], use.names = FALSE), TT)))
+  train.inds <- sort(unique(c(unlist(folds[-ifold], use.names = FALSE), TT)))
   
   fail_dir <- file.path(destin, "failed_jobs_rds")
   dir.create(fail_dir, recursive = TRUE, showWarnings = FALSE)

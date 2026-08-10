@@ -129,12 +129,12 @@ Mstep_sigma_flowcut <- function(resp,
     ## End of temporary
 
 
-    estep_for_censored_particles(iclust, resp,
-                                 ylist_imputed,
-                                 second_moment_list, mn,
-                                 idx_cens_list,
-                                 left_cens_list,
-                                 right_cens_list)
+    # estep_for_censored_particles(iclust, resp,
+    #                              ylist_imputed,
+    #                              second_moment_list, mn,
+    #                              idx_cens_list,
+    #                              left_cens_list,
+    #                              right_cens_list)
     
     # estepC is assumed to be provided by your C++ code; it returns d x d matrix:
     vars[[iclust]] <-

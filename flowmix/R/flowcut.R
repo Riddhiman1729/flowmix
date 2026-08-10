@@ -370,6 +370,16 @@ flowcut_once <- function(ylist, X,
                                 ntlist_orig = ntlist,
                                 second_moment_list = second_moments, ## TODO; change argument name
                                 mn = mn)
+    
+      result <- tryCatch({
+        # This broken code triggers the error block
+        eigendecomp_sigma_array(sigma)
+      }, error = function(e) {
+        message("An error occurred. Opening debugger...")
+        print(e)
+        browser() # Opens interactive debugging console
+      })
+      
 
       ## 3. (Continue) Decompose the sigmas.
       sigma_eig_by_clust <- eigendecomp_sigma_array(sigma)
