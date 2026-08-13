@@ -267,6 +267,7 @@ flowcut_once <- function(ylist, X,
   ## Main loop
   start.time = Sys.time()
   for(iter in 2:niter){
+    #if(iter == 34) browser()
     if(verbose){
       cat("Iteration", iter - 1, "of", niter - 1, "EM iterations.\n")
       time_elapsed <- round(as.numeric(difftime(Sys.time(), start.time, units = "secs")), 1)

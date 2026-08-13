@@ -33,7 +33,7 @@ estep_for_censored_particles <- function(iclust, resp, ylist,
   empty_mat_out = matrix(0, dimdat, dimdat)
 
   if(is.null(idx_cens_list)){
-    out_mat = 0
+    out_mat = empty_mat_out
   } else {
     all_imputed_resid_sq_alltimes <- lapply(1:TT, function(tt){
 
@@ -49,11 +49,11 @@ estep_for_censored_particles <- function(iclust, resp, ylist,
 
         ## Which indices (in the dimdat x dimdat matrix) to fill in
         indices_temp = which(left_cens_list[[tt]][ii,] | right_cens_list[[tt]][ii,])
-        mean_temp <- ylist[[tt]][irow, indices_temp]
+        mean_temp <- ylist[[tt]][irow, indices_temp, drop = FALSE]
 
         mat_out
         mat_out[indices_temp, indices_temp] <-
-          resp[[tt]][ii, iclust] *
+          resp[[tt]][irow, iclust] *
           (second_moment_list[[iclust]][[tt]][[ii]] - mean_temp %*% t(mean_temp))
         return(mat_out)
       })
@@ -109,6 +109,8 @@ Mstep_sigma_flowcut <- function(resp,
                                     new_responses[[iclust]],
                                     idx_cens_list = idx_cens_list,
                                     idx_uncens_list = idx_uncens_list)
+    }else{
+      ylist_imputed <- ylist
     }
 
     ylong <- do.call(rbind, ylist_imputed)

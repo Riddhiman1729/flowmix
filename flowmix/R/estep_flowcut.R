@@ -1,5 +1,4 @@
-#' Documentation needed.
-#'
+#' The estep for calculating $P(Z=k | X, Y)$ where $Y$ is censored. 
 #' @param mn Array TT x dimdat x numclust of means.
 #' @param sigma Array numclust x dimdat x dimdat of covariances.
 #' @param prob Matrix TT x numclust of component weights.
