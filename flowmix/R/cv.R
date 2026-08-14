@@ -1055,11 +1055,6 @@ cv.flowcut <- function(
       
     } else {
       
-      cat("Refit: ialpha =", ialpha,
-          "ibeta =", ibeta,
-          "ifold =", ifold,
-          "irep =", irep, "\n")
-      
       one_job_refit_flowcut(
         ialpha = ialpha,
         ibeta = ibeta,

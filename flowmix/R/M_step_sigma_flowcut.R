@@ -26,6 +26,7 @@ estep_for_censored_particles <- function(iclust, resp, ylist,
 
 
   ## Setup
+  browser()
   TT <- length(ylist)
   ntlist <- sapply(ylist, nrow)
   dimdat <- ncol(ylist[[1]])
@@ -48,7 +49,7 @@ estep_for_censored_particles <- function(iclust, resp, ylist,
         mat_out = matrix(0, dimdat, dimdat)
 
         ## Which indices (in the dimdat x dimdat matrix) to fill in
-        indices_temp = which(left_cens_list[[tt]][ii,] | right_cens_list[[tt]][ii,])
+        indices_temp = which(left_cens_list[[tt]][ii,] | right_cens_list[[tt]][ii,]) 
         mean_temp <- ylist[[tt]][irow, indices_temp, drop = FALSE]
 
         mat_out
